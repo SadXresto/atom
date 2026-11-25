@@ -1,0 +1,24 @@
+[package]
+name = "atom-engine"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+atom-bench = { path = "../atom-bench" }
+atom-compression = { path = "../atom-compression" }
+atom-core = { path = "../atom-core" }
+atom-inference = { path = "../atom-inference" }
+atom-memory = { path = "../atom-memory" }
+atom-models = { path = "../atom-models" }
+atom-security = { path = "../atom-security" }
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sysinfo.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+atom-teststubs = { path = "../atom-teststubs" }
+tempfile = "3"

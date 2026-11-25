@@ -1,0 +1,161 @@
+# ATOM — Adaptive Tiny Operating Model
+
+A local-first desktop application for importing GGUF language models, tuning how
+they run, **permanently** compressing them into separate files, and comparing
+original vs. compressed behaviour with measured numbers.
+
+Built in Rust (Tauri shell, axum API, llama.cpp backend) with a React +
+TypeScript + Tailwind interface.
+
+> ATOM is a developer tool, not a chatbot demo. Every metric shown is either
+> measured from the OS or the tool's own output, or clearly labelled as an
+> estimate. When llama.cpp is missing, ATOM says so and disables the feature
+> instead of simulating it.
+
+---
+
+## Two optimization modes, deliberately separate
+
+| | Live runtime optimization | Permanent compression |
+| --- | --- | --- |
+| What changes | How llama.cpp loads and runs the model | A new GGUF file on disk |
+| Reversible | Yes — unload/reload | No, the output is a new artifact |
+| Knobs | context, threads, batch, mmap, mlock, flash-attn, GPU layers, KV-cache precision, memory budget | llama-quantize type (Q8_0 … Q2_K) |
+| Original file | Never modified | Never modified, never deleted |
+| Evidence | load time, RSS, TTFT, tok/s | size delta, checksums, validation report |
+
+ATOM does **not** claim dynamic weight compression, layer skipping or
+"intelligent" sparsity. Those are not operations llama.cpp exposes here, so they
+are not offered.
+
+---
+
+## What is implemented
+
+- **Model library** — GGUF v1–v3 header/metadata/tensor parser written in this
+  repo, streaming SHA-256, import by path or upload, drag-and-drop, filter/search,
+  variant links (compressed → source), verification and tamper detection.
+- **Permanent compression** — detects the installed `llama-quantize`, reads the
+  quantization types *its own help output advertises*, computes real per-tensor
+  size estimates, runs it with an explicit argv, parses its `[n/total]` tensor
+  progress, supports cancellation, deletes partial output, then re-parses and
+  validates the result before it enters the library.
+- **Inference** — supervises `llama-server` (HTTP), streams tokens, cancels
+  immediately, measures TTFT/throughput/load time, and samples the child
+  process's real RSS.
+- **Comparison Lab** — identical prompts and runtime settings across 1–3 models;
+  disk, throughput, latency, peak RSS, per-suite pass rates, repeat-consistency;
+  Markdown + JSON reports; history.
+- **System monitor** — sysinfo-backed samples streamed over SSE, with system RAM,
+  ATOM process RSS and model process RSS kept visibly separate.
+- **Quality suites** — deterministic, rule-checked cases for instruction
+  following, knowledge, reasoning, arithmetic, coding and consistency. Results
+  are labelled automated estimates, never "intelligence scores".
+- **Desktop shell** — Tauri 2 app that hosts the same API on a loopback port and
+  loads the same UI.
+- **CLI** — `atom status | inspect | models | formats | import | quantize`.
+
+## Requires an external llama.cpp build
+
+ATOM does **not** ship or download inference binaries.
+
+- `llama-server` → inference, chat, benchmarking
+- `llama-quantize` → permanent compression
+
+Set explicit paths in **Settings**, or put them on `PATH`. Both the API and the
+UI report precisely which of the two is missing and what that disables.
+
+## Quick start
+
+```bash
+# 1. Backend + API
+cargo build --release
+ATOM_HOME="$HOME/.atom" ./target/release/atom-api      # http://127.0.0.1:8787
+
+# 2. UI for development (proxies /api to the API)
+cd frontend
+bun install
+bun run dev                                            # http://127.0.0.1:3003
+
+# 3. Production UI, served by the API
+bun run build                                          # writes frontend/dist
+```
+
+Desktop app: see [apps/desktop/README.md](apps/desktop/README.md) (needs
+WebKitGTK / Xcode / WebView2; excluded from the portable workspace).
+
+CLI:
+
+```bash
+./target/release/atom status
+./target/release/atom inspect ~/Models/model-f16.gguf
+./target/release/atom import ~/Models/model-f16.gguf
+./target/release/atom formats <model-id>
+./target/release/atom quantize <model-id> Q4_K_M
+```
+
+## Repository layout
+
+```
+crates/
+  atom-core/        config, errors, job registry, log buffer
+  atom-security/    path allowlist, checksums, input validation, argv rules
+  atom-models/      GGUF parser, quant catalog, library, import, verification
+  atom-memory/      sysinfo sampling (system + per-process)
+  atom-inference/   llama-server supervision, streaming, tool probing
+  atom-compression/ quantize planning, execution, output validation
+  atom-bench/       deterministic suites, scoring, comparison store/reports
+  atom-engine/      composition root used by API, CLI and desktop
+apps/
+  api/              axum HTTP + SSE surface, serves the built UI
+  cli/              `atom` command
+  desktop/          Tauri 2 shell (separate workspace; GUI libs required)
+frontend/
+  src/components/   design system, charts, job console, comparison view
+  src/pages/        Overview, Library, Compression, Comparison, Inference,
+                    Monitor, History, Settings
+docs/               architecture and verification notes
+```
+
+## Safety properties enforced in code
+
+- Every path is canonicalized and checked against an allowlist of roots
+  (`PathGuard`); traversal and symlink escapes are rejected.
+- External tools are spawned with explicit argv — never through a shell.
+- Output paths are refused when they equal the source path; source files are
+  never deleted by ATOM.
+- Partial or invalid quantization output is deleted, never presented as success.
+- Job cancellation kills the child process and reaps it.
+- Model metadata is parsed as data only; nothing from a model file is executed.
+- Network access is off by default, and no download code path exists yet.
+
+## Tests
+
+```bash
+cargo test --workspace     # 53 tests: parser, security, quantize, scoring, engine jobs,
+                           # plus stub-driven process/streaming integration tests
+cd frontend && npx tsc --noEmit && bun run build
+```
+
+`crates/atom-teststubs` holds two dev-only executables that impersonate
+`llama-quantize` and `llama-server`. The integration tests spawn them as real
+child processes, so cancellation cleanup, output validation, measured load time
+and SSE token streaming are exercised without a llama.cpp build or a real model.
+
+See [docs/VERIFICATION.md](docs/VERIFICATION.md) for exactly what was verified in
+the build environment and what was not.
+
+## Known limitations
+
+- **No llama.cpp in this build environment.** Process supervision, tensor
+  progress parsing, cancellation cleanup, output validation and SSE streaming
+  are verified against stub executables (`crates/atom-teststubs`), but no real
+  multi-GB conversion or real model inference was performed here. The UI still
+  reports a missing backend as unavailable rather than simulating it.
+- **Desktop shell not compiled here** (no WebKitGTK/GTK dev packages).
+- Model downloads are **not implemented**; the Settings toggle only records
+  intent for a future opt-in, checksum-verified flow.
+- GPU offload is passed through as `-ngl`; ATOM does not probe GPU memory.
+- Quality suites are small and rule-based by design. They detect regressions on
+  those specific behaviours, not general model equivalence.
+- `mcp`/agent features (`atom-agent`) are a future phase and absent.

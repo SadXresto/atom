@@ -1,0 +1,19 @@
+[package]
+name = "atom-compression"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+atom-core = { path = "../atom-core" }
+atom-inference = { path = "../atom-inference" }
+atom-models = { path = "../atom-models" }
+atom-security = { path = "../atom-security" }
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+atom-teststubs = { path = "../atom-teststubs" }
+tempfile = "3"

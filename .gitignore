@@ -1,0 +1,9 @@
+/target
+**/node_modules
+frontend/dist
+.run/
+*.log
+.DS_Store
+
+# Local verification screenshots (regenerate with the app running)
+/artifacts/

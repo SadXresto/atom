@@ -1,0 +1,18 @@
+[package]
+name = "atom-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "atom"
+path = "src/main.rs"
+
+[dependencies]
+atom-bench = { path = "../../crates/atom-bench" }
+atom-compression = { path = "../../crates/atom-compression" }
+atom-core = { path = "../../crates/atom-core" }
+atom-engine = { path = "../../crates/atom-engine" }
+atom-models = { path = "../../crates/atom-models" }
+clap.workspace = true
+serde_json.workspace = true
+tokio.workspace = true

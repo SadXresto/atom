@@ -1,0 +1,20 @@
+[package]
+name = "atom-teststubs"
+version.workspace = true
+edition.workspace = true
+publish = false
+description = "Test-only stand-ins for llama-quantize and llama-server (never shipped)"
+
+# Both stubs are plain std binaries. They are built by `cargo test` because the
+# engine/compression/inference integration tests spawn them as real processes.
+# `harness = false` keeps libtest from trying to run them as test suites; the
+# binaries also bail out early when invoked with harness flags.
+[[bin]]
+name = "stub-llama-quantize"
+path = "src/bin/stub_llama_quantize.rs"
+harness = false
+
+[[bin]]
+name = "stub-llama-server"
+path = "src/bin/stub_llama_server.rs"
+harness = false

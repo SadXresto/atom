@@ -1,0 +1,18 @@
+[package]
+name = "atom-desktop"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+atom-api = { path = "../api" }
+atom-core = { path = "../../crates/atom-core" }
+atom-engine = { path = "../../crates/atom-engine" }
+axum = "0.8"
+tauri = { version = "2", features = [] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2"

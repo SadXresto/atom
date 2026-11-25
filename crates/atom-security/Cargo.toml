@@ -1,0 +1,13 @@
+[package]
+name = "atom-security"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+atom-core = { path = "../atom-core" }
+serde.workspace = true
+sha2.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
