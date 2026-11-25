@@ -6,6 +6,8 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -205,5 +207,40 @@ export function SizeBars({ items }: { items: Array<{ label: string; value: numbe
         </div>
       ))}
     </div>
+  );
+}
+
+export function LossChart({
+  curve,
+}: {
+  curve: Array<{ epoch: number; train_loss: number; val_loss: number }>;
+}) {
+  const data = curve.map((point) => ({
+    epoch: `e${point.epoch}`,
+    train: Number(point.train_loss.toFixed(4)),
+    val: Number(point.val_loss.toFixed(4)),
+  }));
+  if (data.length === 0) {
+    return (
+      <div className="flex h-[200px] items-center justify-center text-[12px] text-muted">
+        No epochs recorded yet
+      </div>
+    );
+  }
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+        <CartesianGrid stroke={gridColor} vertical={false} />
+        <XAxis dataKey="epoch" tick={axisStyle} axisLine={false} tickLine={false} />
+        <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={52} tickFormatter={(v: number) => v.toFixed(2)} />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          formatter={(value: number, name: string) => [value.toFixed(4), name === "train" ? "training loss" : "validation loss"]}
+        />
+        <Legend wrapperStyle={{ fontSize: 11, color: "#8a93a5" }} iconType="circle" iconSize={7} />
+        <Line type="monotone" dataKey="train" stroke="#7f9dff" strokeWidth={1.8} dot={false} isAnimationActive={false} name="train" />
+        <Line type="monotone" dataKey="val" stroke="#4fd1c5" strokeWidth={1.8} dot={false} isAnimationActive={false} name="val" />
+      </LineChart>
+    </ResponsiveContainer>
   );
 }

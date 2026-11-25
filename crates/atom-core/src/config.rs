@@ -49,6 +49,14 @@ impl Paths {
     pub fn outputs_dir(&self) -> PathBuf {
         self.root.join("compressed")
     }
+
+    pub fn micro_dir(&self) -> PathBuf {
+        self.root.join("micro")
+    }
+
+    pub fn exports_dir(&self) -> PathBuf {
+        self.root.join("exports")
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -56,6 +64,8 @@ impl Paths {
 pub struct AtomConfig {
     /// Directories ATOM may read model files from.
     pub model_roots: Vec<String>,
+    /// Directories ATOM may read datasets from (Micro projects).
+    pub dataset_roots: Vec<String>,
     pub models_dir: String,
     pub outputs_dir: String,
     pub reports_dir: String,
@@ -82,6 +92,13 @@ pub struct AtomConfig {
     pub network_enabled: bool,
 
     pub api_port: u16,
+
+    /// Set once the first-run walkthrough is completed or skipped.
+    pub onboarding_completed: bool,
+
+    /// Optional explicit paths for external tools used by the Micro pipeline.
+    pub platformio_path: Option<String>,
+    pub python_path: Option<String>,
 }
 
 impl Default for AtomConfig {
@@ -94,13 +111,18 @@ impl AtomConfig {
     pub fn defaults_for(paths: &Paths) -> Self {
         let root = paths.root.display().to_string();
         let mut model_roots = vec![paths.models_dir().display().to_string()];
+        let mut dataset_roots = vec![paths.root.join("datasets").display().to_string()];
         if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
             for candidate in ["Models", "Downloads", "Documents/models"] {
                 model_roots.push(home.join(candidate).display().to_string());
             }
+            for candidate in ["datasets", "Documents/datasets", "Downloads"] {
+                dataset_roots.push(home.join(candidate).display().to_string());
+            }
         }
         AtomConfig {
             model_roots,
+            dataset_roots,
             models_dir: paths.models_dir().display().to_string(),
             outputs_dir: paths.outputs_dir().display().to_string(),
             reports_dir: paths.bench_dir().display().to_string(),
@@ -121,6 +143,9 @@ impl AtomConfig {
             verify_checksums: true,
             network_enabled: false,
             api_port: 8787,
+            onboarding_completed: false,
+            platformio_path: None,
+            python_path: None,
         }
     }
 
@@ -148,6 +173,9 @@ impl AtomConfig {
         if cfg.model_roots.is_empty() {
             cfg.model_roots = defaults.model_roots;
         }
+        if cfg.dataset_roots.is_empty() {
+            cfg.dataset_roots = defaults.dataset_roots;
+        }
         Ok(cfg)
     }
 
@@ -160,6 +188,12 @@ impl AtomConfig {
     pub fn ensure_dirs(&self) -> Result<()> {
         for dir in [&self.models_dir, &self.outputs_dir, &self.reports_dir] {
             std::fs::create_dir_all(dir)?;
+        }
+        for root in &self.dataset_roots {
+            let path = PathBuf::from(root);
+            if path.starts_with(&self.data_root) {
+                std::fs::create_dir_all(path)?;
+            }
         }
         Ok(())
     }

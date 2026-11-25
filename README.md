@@ -1,8 +1,9 @@
 # ATOM — Adaptive Tiny Operating Model
 
 A local-first desktop application for importing GGUF language models, tuning how
-they run, **permanently** compressing them into separate files, and comparing
-original vs. compressed behaviour with measured numbers.
+they run, **permanently** compressing them into separate files, comparing
+original vs. compressed behaviour with measured numbers, and training/exporting
+tiny specialist models for microcontrollers with **ATOM Micro**.
 
 Built in Rust (Tauri shell, axum API, llama.cpp backend) with a React +
 TypeScript + Tailwind interface.
@@ -51,9 +52,39 @@ are not offered.
 - **Quality suites** — deterministic, rule-checked cases for instruction
   following, knowledge, reasoning, arithmetic, coding and consistency. Results
   are labelled automated estimates, never "intelligence scores".
+- **ATOM Micro** — a complete 11-step workflow (project → board → dataset →
+  architecture → training → evaluation → quantization → memory plan → export →
+  firmware → device benchmarks) backed by the `atom-micro` crate. Byte-level MLP
+  specialists train in-process with real SGD; exported int8/int4 artifacts ship
+  with a C runtime, a host harness that is compiled and measured by ATOM, and a
+  generated PlatformIO project for the selected board.
 - **Desktop shell** — Tauri 2 app that hosts the same API on a loopback port and
   loads the same UI.
 - **CLI** — `atom status | inspect | models | formats | import | quantize`.
+
+## ATOM Micro
+
+ATOM Micro is a separate, self-contained pipeline for specialists that fit on a
+microcontroller. It is not a wrapper around a cloud API and it does not fake a
+training run.
+
+| Step | Operation | What is real |
+| --- | --- | --- |
+| 1–2 | Project and target board | project persisted on disk; board limits from `atom-micro` hardware tables |
+| 3 | Dataset import | file copied into the ATOM home, document/byte stats, deterministic train/val split |
+| 4 | Architecture | 3 built-in MLP specs (parameters computed from the spec), 2 transformer specs that require PyTorch |
+| 5 | Training | real byte-level MLP, in-process SGD, per-epoch train/validation loss, cancellable job |
+| 6 | Evaluation | measured validation windows, perplexity and next-byte accuracy |
+| 7 | Quantize | symmetric per-row int8/int4 with measured size ratio and loss delta |
+| 8 | RAM / flash | weight bytes plus activation/heap estimate against the board's datasheet limits (labelled estimate) |
+| 9 | Export | `model.bin`, `model.c/h`, `runtime.c`, `main.c`, manifest with SHA-256, README, then a host compile + benchmark check |
+| 10 | Firmware | generated PlatformIO project, `pio run`, upload and serial monitor; requires PlatformIO |
+| 11 | Benchmarks | import a device JSON report or read serial `bench` output; fabricated/zero numbers are rejected |
+
+Architectures that need PyTorch (transformers) are listed but disabled with the
+exact requirement. Firmware build, flashing and teacher-model distillation report
+an unavailable state when PlatformIO, a serial port or a loaded `llama-server`
+teacher are missing — they never simulate success.
 
 ## Requires an external llama.cpp build
 
@@ -105,6 +136,7 @@ crates/
   atom-inference/   llama-server supervision, streaming, tool probing
   atom-compression/ quantize planning, execution, output validation
   atom-bench/       deterministic suites, scoring, comparison store/reports
+  atom-micro/       boards, datasets, MLP model, quantization, export, firmware, benchmarks
   atom-engine/      composition root used by API, CLI and desktop
 apps/
   api/              axum HTTP + SSE surface, serves the built UI
@@ -112,8 +144,9 @@ apps/
   desktop/          Tauri 2 shell (separate workspace; GUI libs required)
 frontend/
   src/components/   design system, charts, job console, comparison view
-  src/pages/        Overview, Library, Compression, Comparison, Inference,
-                    Monitor, History, Settings
+  src/pages/        Onboarding, Overview, Library, Compression, RuntimeOptimization,
+                    Comparison, Inference, Benchmarks, MicroProjects, MicroStudio,
+                    Training, Distillation, Hardware, Deployment, Monitor, Settings
 docs/               architecture and verification notes
 ```
 
@@ -132,8 +165,9 @@ docs/               architecture and verification notes
 ## Tests
 
 ```bash
-cargo test --workspace     # 53 tests: parser, security, quantize, scoring, engine jobs,
-                           # plus stub-driven process/streaming integration tests
+cargo test --workspace     # 81 tests: parser, security, quantize, scoring, engine jobs,
+                           # Micro training/export/quantization, plus stub-driven
+                           # process/streaming integration tests
 cd frontend && npx tsc --noEmit && bun run build
 ```
 
@@ -155,6 +189,15 @@ the build environment and what was not.
 - **Desktop shell not compiled here** (no WebKitGTK/GTK dev packages).
 - Model downloads are **not implemented**; the Settings toggle only records
   intent for a future opt-in, checksum-verified flow.
+- **ATOM Micro firmware steps need PlatformIO** (`pip install platformio`). The
+  export step still compiles and benchmarks on the host with `cc`, but building
+  and flashing board firmware is unavailable without `pio`.
+- **Transformer Micro architectures need PyTorch** (`pip install torch`). The
+  built-in MLP trainers do not.
+- Distillation uses a loaded `llama-server` teacher; without one the lab is
+  disabled and explains what to load.
+- Device benchmark numbers are imported from a real board (or the exported host
+  harness); ATOM never invents them.
 - GPU offload is passed through as `-ngl`; ATOM does not probe GPU memory.
 - Quality suites are small and rule-based by design. They detect regressions on
   those specific behaviours, not general model equivalence.

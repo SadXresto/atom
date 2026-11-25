@@ -8,7 +8,7 @@ proven here; this file separates what was run from what was not.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Full workspace tests | `cargo test --workspace` | **53 passed, 0 failed**, no warnings |
+| Full workspace tests | `cargo test --workspace` | **81 passed, 0 failed** |
 | GGUF parser (hooks, arrays, bounds, KV estimate) | `cargo test -p atom-models` | 12 passed |
 | Path allowlist / traversal / checksum | `cargo test -p atom-security` | 4 passed |
 | Quantize planning, argv, progress parsing, validation | `cargo test -p atom-compression` | 11 passed |
@@ -18,9 +18,11 @@ proven here; this file separates what was run from what was not.
 | Engine jobs end-to-end (import, refusal, backend gate) | `cargo test -p atom-engine --test engine` | 6 passed |
 | Engine end-to-end with both stub binaries | `cargo test -p atom-engine --test stub_backend` | 5 passed |
 | Frontend typecheck | `npx tsc --noEmit` | clean |
+| Frontend typecheck after UI changes | `npx tsc --noEmit` | clean |
 | Frontend production build | `bun run build` | built, `frontend/dist` |
 | API + built UI served | `curl :8787/`, `/api/health`, `/api/models` | 200 text/html, JSON OK |
-| All eight routes render | Playwright over the dev preview | no page errors |
+| All routes render | Playwright over the dev preview, 1440×950 and mobile width | no page errors, no horizontal overflow |
+| Micro API workflow | `.run/e2e_micro.py` against a live API | project → dataset → train → evaluate → int8 → memory → export → host bench → import → infer all succeeded (numbers below) |
 | CLI | `atom status` | reports both binaries missing and ready=false |
 
 ### What the stub-driven tests actually prove
@@ -62,6 +64,37 @@ under test is unchanged.
 11. **HTTP errors** surface as an error event to the UI and as an `Err` from the
     batch path — never as a silent empty answer.
 12. **Unload** reaps the child (verified via `/proc/<pid>` disappearing).
+
+### ATOM Micro, measured in this VM
+
+| Operation | Observed result |
+| --- | --- |
+| Dataset import | 1 document, 10,976 bytes, entropy 4.24 bits/byte, split 9,331 / 1,646 chars |
+| Training (`atom-mlp-tiny`, 6 epochs, 3,000 windows/epoch) | loss 4.3490 → validation 0.7096, perplexity 2.03, top-1 92.1%, 6.55 s |
+| Evaluation | 1,640 held-out windows, perplexity 2.017 |
+| int8 quantization | 45,248 weight bytes, 3.83× smaller than f32, loss delta +0.0006 |
+| RAM/flash plan (ESP32-S3) | fits: 42.20 KiB RAM (8%), 380 KiB flash (4.6%) |
+| Export | 7 files, 194,156 bytes, SHA-256 manifest |
+| Host compile check | `cc` compiled the exported runtime and measured 210,084 tok/s (1-byte MLP, host reference) |
+| Device report import | 1 run accepted (176,678 tok/s, 0.01 ms, 46.27 KiB); malformed or zero numbers refused |
+| Inference | 64-byte completion measured in 7 ms |
+| Missing PlatformIO | build endpoint returns HTTP 503 `unavailable` before starting a job |
+| Missing teacher | distillation returns HTTP 503 with the exact requirement |
+
+Training loss, perplexity and quantization deltas are computed from the model; they
+are not constants in the response. The host throughput reflects a tiny model on
+this VM, not a microcontroller.
+
+## ATOM Micro not executed here
+
+1. **Firmware build and flash.** No PlatformIO Core (`pio`) and no serial board.
+   The generated project is complete, but `pio run`/upload were not run; the API
+   refuses with 503 instead of pretending.
+2. **Transformer Micro architectures.** Listed and parameter-counted, but
+   training requires PyTorch, which is absent.
+3. **Distillation.** Needs a loaded `llama-server` teacher; no GGUF/backend here.
+4. **Real board benchmarks.** The imported report came from the exported host
+   harness. Real ESP32/RP2040 numbers require flashing a board.
 
 ## Not executed here
 
@@ -113,6 +146,20 @@ Then, in the UI:
    report downloads with prompt outputs.
 5. **Source protection** — `sha256sum` the original before and after the run; it
    must be identical.
+
+## How to verify ATOM Micro on a machine with PlatformIO
+
+```bash
+pip install platformio
+cargo build --release
+ATOM_HOME=/tmp/atom-micro ./target/release/atom-api
+```
+
+Create a project in **Micro Studio**, import a UTF-8 text dataset, train
+`Atom MLP · Tiny`, evaluate, quantize to int8, analyse memory, export (watch the
+host compile check), then **Build** — `pio run` output streams into the job log.
+Attach the board, flash, open the serial monitor and send `bench`, then import the
+JSON it prints in **Benchmark Center**.
 
 ## Honesty checks in the product
 

@@ -17,6 +17,10 @@ pub enum JobKind {
     Quantize,
     Benchmark,
     Verification,
+    Train,
+    Export,
+    Deploy,
+    Distillation,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]

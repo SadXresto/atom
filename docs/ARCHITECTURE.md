@@ -26,8 +26,9 @@ store and conversations. `apps/api` contains only transport code.
 | `atom-inference` | tool probing, `Runtime` (llama-server child), SSE parsing, `complete_at` | waits on `/health`; load time measured; child reaped on unload; cancellation checked per chunk |
 | `atom-compression` | quantize tooling, plan/argv, runner, validation | source ≠ output enforced; progress parsed from tool output; partial output deleted on failure/cancel |
 | `atom-bench` | suites, scoring, comparison types, store, Markdown report | every check is deterministic; consistency is agreement between repeats |
-| `atom-engine` | orchestration of jobs, runtime, chat, comparisons | long work runs in tokio tasks; blocking work uses `spawn_blocking` |
-| `atom-api` | routes, SSE, static UI hosting | destructive model deletion requires `confirm=<id>` |
+| `atom-micro` | board tables, dataset stats/split, byte-level MLP + SGD, quantization, micro project store, C export, PlatformIO project, benchmark import | training loss is computed from the model, never written by the caller; quantization reports its measured delta; unsupported architectures/tools return unavailable |
+| `atom-engine` | orchestration of jobs, runtime, chat, comparisons, Micro pipeline | long work runs in tokio tasks; blocking work uses `spawn_blocking` |
+| `atom-api` | routes, SSE, static UI hosting, Micro endpoints | destructive model deletion requires `confirm=<id>`; export downloads are restricted to a file whitelist |
 
 ## Long-running work
 
@@ -37,6 +38,8 @@ to `GET /api/jobs/{id}/stream` (SSE) and can also replay `GET /api/jobs/{id}/log
 
 Progress sources are real:
 
+- **Micro training** — epoch × windows counter inside the SGD loop.
+- **Micro firmware** — PlatformIO output lines in the job log.
 - **Import** — bytes copied (then checksum phase).
 - **Quantize** — `llama-quantize` tensor counter `[n/total]` mapped to 5–95%,
   then validation.
@@ -99,3 +102,21 @@ as an automated estimate everywhere it appears.
 - No GPU memory probing or automatic offload decisions.
 - No claims about "intelligence"; only rule-checked behaviour on fixed prompts.
 - No agent/system access (`atom-agent`).
+
+## ATOM Micro pipeline
+
+`atom-micro` is independent of llama.cpp. `MicroStore` persists projects under
+`<ATOM_HOME>/micro/projects`, datasets are copied into `<ATOM_HOME>/datasets` and
+exports into `<ATOM_HOME>/micro/exports/<project>/<variant>`.
+
+The built-in model is a byte-level MLP: a 256×24 embedding, a 24→hidden→256
+network and a 24-byte causal context. Training is a real in-process SGD loop with
+gradient clipping and a held-out split; loss, perplexity and top-1 are computed
+from the model. Quantization is symmetric per output row for int8/int4, and the
+reported loss delta comes from re-scoring the validation split with the quantized
+weights.
+
+Export writes a self-contained C implementation plus a host harness, compiles it
+with the host C compiler and runs `--bench` to produce a real measurement. The
+generated PlatformIO project uses the same `model.c` and runtime; building it is a
+`JobKind::Deploy` job that streams `pio` output.

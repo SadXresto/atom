@@ -8,6 +8,10 @@
 //! only a dev-dependency.
 
 use std::path::PathBuf;
+use std::process::Command;
+use std::sync::Once;
+
+static BUILD: Once = Once::new();
 
 /// Absolute path of a stub executable built in the current Cargo target dir.
 ///
@@ -30,10 +34,33 @@ pub fn bin(name: &str) -> PathBuf {
             None => break,
         }
     }
-    panic!(
-        "stub binary '{name}' was not built. Run `cargo build -p atom-teststubs` first \
-         (or `cargo test --workspace`, which builds it)."
-    )
+    // Cargo only builds a dependency's binaries when the whole workspace is
+    // built, so a `cargo test -p <crate>` run can start without them. Build
+    // them once, on demand, instead of failing the test run.
+    BUILD.call_once(|| {
+        let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let status = Command::new(cargo)
+            .args(["build", "-p", "atom-teststubs", "--bins", "--quiet"])
+            .current_dir(&root)
+            .status();
+        match status {
+            Ok(status) if status.success() => {}
+            other => panic!("could not build the stub binaries: {other:?}"),
+        }
+    });
+    let mut dir = exe.parent().expect("test executable has a parent directory");
+    for _ in 0..6 {
+        let candidate = dir.join(exe_name(name));
+        if candidate.is_file() {
+            return candidate;
+        }
+        match dir.parent() {
+            Some(parent) => dir = parent,
+            None => break,
+        }
+    }
+    panic!("stub binary '{name}' is still missing after building atom-teststubs")
 }
 
 fn exe_name(name: &str) -> String {

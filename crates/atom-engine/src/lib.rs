@@ -2,6 +2,7 @@
 
 pub mod chat;
 pub mod jobs;
+pub mod micro;
 pub mod runtime;
 pub mod state;
 

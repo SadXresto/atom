@@ -9,6 +9,7 @@ atom-compression = { path = "../atom-compression" }
 atom-core = { path = "../atom-core" }
 atom-inference = { path = "../atom-inference" }
 atom-memory = { path = "../atom-memory" }
+atom-micro = { path = "../atom-micro" }
 atom-models = { path = "../atom-models" }
 atom-security = { path = "../atom-security" }
 chrono.workspace = true

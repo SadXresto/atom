@@ -80,6 +80,7 @@ dependencies = [
  "atom-engine",
  "atom-inference",
  "atom-memory",
+ "atom-micro",
  "atom-models",
  "atom-security",
  "axum",
@@ -159,6 +160,7 @@ dependencies = [
  "atom-core",
  "atom-inference",
  "atom-memory",
+ "atom-micro",
  "atom-models",
  "atom-security",
  "atom-teststubs",
@@ -197,6 +199,19 @@ dependencies = [
  "chrono",
  "serde",
  "sysinfo",
+]
+
+[[package]]
+name = "atom-micro"
+version = "0.1.0"
+dependencies = [
+ "atom-core",
+ "atom-security",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "uuid",
 ]
 
 [[package]]

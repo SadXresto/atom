@@ -174,7 +174,7 @@ export default function Comparison() {
         </Banner>
       )}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1.4fr]">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="space-y-4">
           <Panel title="Models" icon={<Layers size={14} />} subtitle="Baseline first, candidate second.">
             <div className="space-y-3">

@@ -129,7 +129,15 @@ export type JobStatus = "queued" | "running" | "succeeded" | "failed" | "cancell
 
 export interface JobView {
   id: string;
-  kind: "import" | "quantize" | "benchmark" | "verification";
+  kind:
+    | "import"
+    | "quantize"
+    | "benchmark"
+    | "verification"
+    | "train"
+    | "export"
+    | "deploy"
+    | "distillation";
   title: string;
   status: JobStatus;
   stage: string;
@@ -335,6 +343,7 @@ export interface Conversation {
 
 export interface Config {
   model_roots: string[];
+  dataset_roots: string[];
   models_dir: string;
   outputs_dir: string;
   reports_dir: string;
@@ -355,6 +364,9 @@ export interface Config {
   verify_checksums: boolean;
   network_enabled: boolean;
   api_port: number;
+  onboarding_completed: boolean;
+  platformio_path: string | null;
+  python_path: string | null;
 }
 
 export interface Overview {
@@ -370,4 +382,346 @@ export interface Overview {
   recent_jobs: JobView[];
   recent_comparisons: ComparisonSummary[];
   started_at: string;
+}
+
+/* -------------------------------- ATOM Micro ------------------------------- */
+
+export interface MicroTarget {
+  id: string;
+  name: string;
+  vendor: string;
+  mcu: string;
+  cpu_mhz: number;
+  cores: number;
+  sram_bytes: number;
+  flash_bytes: number;
+  psram_bytes: number;
+  fp32_fpu: boolean;
+  accelerator: string;
+  toolchain: string;
+  platformio_board: string | null;
+  notes: string;
+  firmware_bytes: number;
+  runtime_ram_bytes: number;
+}
+
+export interface MicroArchitecture {
+  id: string;
+  name: string;
+  family: string;
+  summary: string;
+  context: number;
+  hidden: number;
+  layers: number;
+  trainable_here: boolean;
+  requires: string | null;
+  default_epochs: number;
+  default_lr: number;
+  default_batch: number;
+  windows_per_epoch: number;
+  parameters: number;
+  description: string;
+  best_for: string;
+}
+
+export interface ByteShare {
+  byte: number;
+  display: string;
+  count: number;
+  share: number;
+}
+
+export interface DatasetStats {
+  documents: number;
+  bytes: number;
+  chars: number;
+  words: number;
+  lines: number;
+  avg_document_chars: number;
+  max_document_chars: number;
+  duplicate_documents: number;
+  unique_bytes: number;
+  train_chars: number;
+  val_chars: number;
+  val_ratio: number;
+  entropy_bits_per_byte: number;
+  top_bytes: ByteShare[];
+}
+
+export interface PreviewItem {
+  index: number;
+  chars: number;
+  excerpt: string;
+}
+
+export interface DatasetInfo {
+  name: string;
+  source_path: string;
+  stored_path: string;
+  format: string;
+  imported_at: string;
+  split_seed: number;
+  stats: DatasetStats;
+  preview: PreviewItem[];
+}
+
+export interface ArchSelection {
+  spec_id: string;
+  name: string;
+  family: string;
+  context: number;
+  hidden: number;
+  epochs: number;
+  learning_rate: number;
+  batch: number;
+  seed: number;
+  windows_per_epoch: number;
+}
+
+export interface EpochPoint {
+  epoch: number;
+  train_loss: number;
+  val_loss: number;
+  val_perplexity: number;
+  top1: number;
+  seconds: number;
+}
+
+export interface SampleGeneration {
+  prompt: string;
+  output: string;
+}
+
+export interface TrainReport {
+  context: number;
+  hidden: number;
+  params: number;
+  epochs: number;
+  windows: number;
+  val_windows: number;
+  duration_ms: number;
+  first_loss: number;
+  train_loss: number;
+  val_loss: number;
+  perplexity: number;
+  top1: number;
+  top5: number;
+  curve: EpochPoint[];
+  samples: SampleGeneration[];
+}
+
+export interface EvalReport {
+  windows: number;
+  loss: number;
+  perplexity: number;
+  top1: number;
+  top5: number;
+  duration_ms: number;
+  samples: SampleGeneration[];
+  note: string;
+}
+
+export interface TrainingSummary {
+  run_id: string;
+  job_id: string;
+  model_path: string;
+  model_bytes: number;
+  started_at: string;
+  finished_at: string;
+  report: TrainReport;
+}
+
+export interface QuantReport {
+  format: string;
+  params: number;
+  weight_bytes: number;
+  f32_bytes: number;
+  ratio: number;
+  bits_per_weight: number;
+  val_loss: number;
+  perplexity: number;
+  top1: number;
+  delta_loss: number;
+  duration_ms: number;
+  note: string;
+}
+
+export interface QuantSummary {
+  format: string;
+  path: string;
+  bytes: number;
+  report: QuantReport;
+  created_at: string;
+}
+
+export interface MemoryPlan {
+  target_id: string;
+  target_name: string;
+  quant_format: string;
+  params: number;
+  weight_bytes: number;
+  activation_bytes: number;
+  runtime_ram_bytes: number;
+  total_ram_bytes: number;
+  sram_bytes: number;
+  psram_bytes: number;
+  firmware_bytes: number;
+  total_flash_bytes: number;
+  flash_bytes: number;
+  ram_used_percent: number;
+  flash_used_percent: number;
+  fits_ram: boolean;
+  fits_flash: boolean;
+  verdict: string;
+  formula: string;
+  estimate: boolean;
+}
+
+export interface ExportFile {
+  name: string;
+  bytes: number;
+  sha256: string;
+}
+
+export interface ExportReport {
+  dir: string;
+  created_at: string;
+  files: ExportFile[];
+  manifest_path: string;
+  manifest_sha256: string;
+  quant_format: string;
+  compile_check: string | null;
+  total_bytes: number;
+}
+
+export interface FirmwareReport {
+  dir: string;
+  target_id: string;
+  board: string;
+  generated_at: string;
+  built: boolean;
+  build_tool: string;
+  artifact_path: string | null;
+  log_tail: string[];
+  error: string | null;
+  deployed: boolean;
+  deployed_at: string | null;
+}
+
+export interface DeviceBenchmark {
+  id: string;
+  device: string;
+  firmware: string;
+  label: string;
+  tokens_per_second: number;
+  latency_ms: number;
+  ram_bytes: number;
+  flash_bytes: number;
+  notes: string;
+  measured_at: string | null;
+  imported_at: string;
+  source: string;
+}
+
+export interface DistillReport {
+  teacher_model_id: string;
+  teacher_label: string;
+  prompts: number;
+  teacher_tokens: number;
+  duration_ms: number;
+  agreement: number;
+  report: TrainReport;
+  dataset: DatasetInfo;
+  model_path: string;
+  created_at: string;
+  method: string;
+}
+
+export interface MicroProject {
+  id: string;
+  name: string;
+  description: string;
+  domain: string;
+  target_id: string;
+  created_at: string;
+  updated_at: string;
+  dataset: DatasetInfo | null;
+  architecture: ArchSelection | null;
+  training: TrainingSummary | null;
+  evaluation: EvalReport | null;
+  quantization: QuantSummary | null;
+  memory: MemoryPlan | null;
+  export: ExportReport | null;
+  firmware: FirmwareReport | null;
+  distillation: DistillReport | null;
+  benchmarks: DeviceBenchmark[];
+  next_step: number;
+  completed_steps: number[];
+}
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  domain: string;
+  target_id: string;
+  updated_at: string;
+  params: number | null;
+  dataset_documents: number | null;
+  val_perplexity: number | null;
+  quant_format: string | null;
+  firmware_built: boolean;
+  next_step: number;
+  completed_steps: number;
+}
+
+export interface MicroOverviewData {
+  projects: ProjectSummary[];
+  counts: { projects: number; trained: number; quantized: number; built: number };
+  storage_bytes: number;
+  started_at: string;
+}
+
+export interface ToolProbe {
+  name: string;
+  path: string | null;
+  version: string | null;
+  required_for: string;
+  install_hint: string;
+  available: boolean;
+}
+
+export interface MicroCapabilities {
+  platformio: ToolProbe;
+  python: ToolProbe;
+  pytorch: ToolProbe;
+  esptool: ToolProbe;
+  cc: ToolProbe;
+  checked_at: string;
+  note: string;
+}
+
+export interface BenchmarkSummary {
+  device: string;
+  firmware: string;
+  best_tokens_per_second: number;
+  mean_tokens_per_second: number;
+  mean_latency_ms: number;
+  peak_ram_bytes: number;
+  runs: number;
+}
+
+export interface MicroProjectResponse {
+  project: MicroProject;
+  capabilities: MicroCapabilities;
+  benchmark_summary: BenchmarkSummary | null;
+}
+
+export interface MicroInferResponse {
+  output: string;
+  tokens: number;
+  total_ms: number;
+  bytes_per_second: number;
+  model_path: string;
+  params: number;
+  format: string;
 }

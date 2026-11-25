@@ -11,6 +11,9 @@ import {
   HardDrive,
   Layers,
   MemoryStick,
+  Microchip,
+  Rocket,
+  GraduationCap,
   Power,
   PowerOff,
   RefreshCw,
@@ -19,7 +22,7 @@ import {
 import { api } from "../lib/api";
 import { bytes, duration, percent, relativeTime } from "../lib/format";
 import { useApi } from "../lib/hooks";
-import type { ModelRecord, Overview as OverviewData } from "../lib/types";
+import type { MicroOverviewData, ModelRecord, Overview as OverviewData } from "../lib/types";
 import { BackendGate } from "../components/Layout";
 import { JobStatusBadge } from "../components/JobConsole";
 import { ModelSelect } from "../components/ModelSelect";
@@ -29,6 +32,7 @@ export default function Overview() {
   const navigate = useNavigate();
   const { data, error, reload } = useApi<OverviewData>("/overview", 5000);
   const { data: modelsData, reload: reloadModels } = useApi<{ models: ModelRecord[] }>("/models", 0);
+  const { data: micro } = useApi<MicroOverviewData>("/micro/overview", 15000);
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [releaseBusy, setReleaseBusy] = useState(false);
@@ -279,11 +283,80 @@ export default function Overview() {
           onClick={() => navigate("/comparison")}
         />
         <QuickAction
-          icon={<Boxes size={15} />}
-          title="Model Library"
-          body="Inspect tensors, licenses and checksums."
-          onClick={() => navigate("/library")}
+          icon={<Microchip size={15} />}
+          title="ATOM Micro"
+          body="Train a specialist model and deploy it to a board."
+          onClick={() => navigate("/micro")}
         />
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+        <Panel
+          title="ATOM Micro projects"
+          subtitle="Specialist models with real training, quantized artifacts and firmware."
+          icon={<Microchip size={14} />}
+          actions={
+            <Button size="sm" onClick={() => navigate("/micro")} icon={<ArrowRight size={12} />}>
+              Micro Studio
+            </Button>
+          }
+        >
+          {!micro?.projects.length ? (
+            <EmptyState
+              compact
+              icon={<Microchip size={16} />}
+              title="No Micro projects yet"
+              description="Create one to train a small model on your own dataset, verify RAM and flash for a board, and build firmware."
+              action={
+                <Button size="sm" variant="primary" onClick={() => navigate("/micro?new=1")}>
+                  Create a project
+                </Button>
+              }
+            />
+          ) : (
+            <div className="divide-y divide-line">
+              {micro.projects.slice(0, 4).map((project) => (
+                <button
+                  key={project.id}
+                  onClick={() => navigate(`/micro/${project.id}`)}
+                  className="flex w-full items-center gap-3 py-2.5 text-left hover:bg-white/[0.02]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[12.5px] text-ink-dim">{project.name}</div>
+                    <div className="mt-0.5 text-[11px] text-muted">
+                      {project.domain || "specialist"} · {project.target_id} · {project.completed_steps}/11 steps
+                    </div>
+                  </div>
+                  <div className="w-20 shrink-0">
+                    <Progress value={project.completed_steps / 11} height={4} />
+                  </div>
+                  <Badge tone={project.quant_format ? "accent" : "neutral"}>{project.quant_format ?? "train"}</Badge>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <MicroLink icon={<GraduationCap size={13} />} label="Training" detail="real epochs" onClick={() => navigate("/training")} />
+            <MicroLink icon={<Cpu size={13} />} label="Hardware Lab" detail="fit budgets" onClick={() => navigate("/hardware")} />
+            <MicroLink icon={<Rocket size={13} />} label="Deployment" detail="build & flash" onClick={() => navigate("/deployment")} />
+          </div>
+        </Panel>
+
+        <Panel title="Micro footprint" icon={<Microchip size={14} />}>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <MiniStat label="projects" value={micro?.counts.projects ?? 0} />
+            <MiniStat label="trained" value={micro?.counts.trained ?? 0} />
+            <MiniStat label="built" value={micro?.counts.built ?? 0} />
+          </div>
+          <div className="mt-3">
+            <KV label="Artifacts on disk" value={micro ? bytes(micro.storage_bytes) : "—"} mono />
+            <KV label="Distillation" value="needs a loaded teacher" />
+            <KV label="Firmware" value="requires PlatformIO" />
+          </div>
+          <Button size="sm" className="mt-3 w-full" onClick={() => navigate("/deployment")} icon={<Rocket size={12} />}>
+            Open Deployment Center
+          </Button>
+        </Panel>
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[1.35fr_1fr]">
@@ -436,6 +509,31 @@ function QuickAction({
       <span className="min-w-0">
         <span className="block text-[12.5px] font-medium text-ink-dim group-hover:text-ink">{title}</span>
         <span className="mt-0.5 block text-[11.5px] leading-snug text-muted">{body}</span>
+      </span>
+    </button>
+  );
+}
+
+function MicroLink({
+  icon,
+  label,
+  detail,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  detail: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2 rounded-lg border border-line bg-black/20 px-2.5 py-2 text-left hover:border-line-strong"
+    >
+      <span className="text-accent">{icon}</span>
+      <span className="min-w-0">
+        <span className="block truncate text-[11.5px] text-ink-dim">{label}</span>
+        <span className="block truncate text-[10px] text-muted">{detail}</span>
       </span>
     </button>
   );

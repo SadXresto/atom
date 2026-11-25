@@ -16,6 +16,8 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+mod micro;
+
 use futures::StreamExt;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -51,7 +53,7 @@ impl IntoResponse for ApiError {
     }
 }
 
-type ApiResult<T> = Result<T, ApiError>;
+pub(crate) type ApiResult<T> = Result<T, ApiError>;
 
 #[derive(Deserialize)]
 struct ConfirmQuery {
@@ -96,6 +98,7 @@ pub fn router(state: AppState) -> Router {
         .route("/comparisons/{id}", get(get_comparison).delete(delete_comparison))
         .route("/comparisons/{id}/report", get(comparison_report))
         .route("/bench/suites", get(bench_suites))
+        .merge(micro::router())
         .with_state(state)
         .layer(DefaultBodyLimit::max(64 * 1024 * 1024 * 1024));
 

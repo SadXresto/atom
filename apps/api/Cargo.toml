@@ -16,6 +16,7 @@ atom-bench = { path = "../../crates/atom-bench" }
 atom-compression = { path = "../../crates/atom-compression" }
 atom-core = { path = "../../crates/atom-core" }
 atom-engine = { path = "../../crates/atom-engine" }
+atom-micro = { path = "../../crates/atom-micro" }
 atom-inference = { path = "../../crates/atom-inference" }
 atom-memory = { path = "../../crates/atom-memory" }
 atom-models = { path = "../../crates/atom-models" }

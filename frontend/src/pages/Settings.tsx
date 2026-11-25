@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useApi } from "../lib/hooks";
-import type { BackendStatus, Config, ToolStatus } from "../lib/types";
+import type { BackendStatus, Config, MicroCapabilities, ToolStatus } from "../lib/types";
 import {
   Badge,
   Banner,
@@ -36,8 +36,10 @@ export default function SettingsPage() {
     "/backend",
     0,
   );
+  const { data: caps } = useApi<MicroCapabilities>("/micro/capabilities", 30000);
   const [draft, setDraft] = useState<Config | null>(null);
   const [rootsText, setRootsText] = useState("");
+  const [datasetRootsText, setDatasetRootsText] = useState("");
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -45,6 +47,7 @@ export default function SettingsPage() {
     if (data) {
       setDraft(data);
       setRootsText(data.model_roots.join("\n"));
+      setDatasetRootsText(data.dataset_roots.join("\n"));
     }
   }, [data]);
 
@@ -68,10 +71,15 @@ export default function SettingsPage() {
         .split("\n")
         .map((line) => line.trim())
         .filter(Boolean);
-      const payload: Config = { ...draft, model_roots: roots };
+      const datasetRoots = datasetRootsText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const payload: Config = { ...draft, model_roots: roots, dataset_roots: datasetRoots };
       const saved = await api<Config>("/settings", { method: "PUT", body: JSON.stringify(payload) });
       setDraft(saved);
       setRootsText(saved.model_roots.join("\n"));
+      setDatasetRootsText(saved.dataset_roots.join("\n"));
       toast("Settings saved", "ok");
       void reloadBackend();
     } catch (e) {
@@ -94,7 +102,10 @@ export default function SettingsPage() {
     }
   };
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify(data) || rootsText !== data?.model_roots.join("\n");
+  const dirty =
+    JSON.stringify(draft) !== JSON.stringify(data) ||
+    rootsText !== data?.model_roots.join("\n") ||
+    datasetRootsText !== data?.dataset_roots.join("\n");
 
   return (
     <div className="fade-in">
@@ -195,7 +206,15 @@ export default function SettingsPage() {
               <textarea
                 value={rootsText}
                 onChange={(e) => setRootsText(e.target.value)}
-                rows={4}
+                rows={3}
+                className="input resize-y font-mono text-[11.5px]"
+              />
+            </Field>
+            <Field label="Dataset roots" hint="Micro projects may import from here">
+              <textarea
+                value={datasetRootsText}
+                onChange={(e) => setDatasetRootsText(e.target.value)}
+                rows={3}
                 className="input resize-y font-mono text-[11.5px]"
               />
             </Field>
@@ -341,6 +360,68 @@ export default function SettingsPage() {
         </Panel>
       </div>
 
+      <div className="mt-4">
+        <Panel
+          title="ATOM Micro toolchain"
+          subtitle="Probed from PATH. Each missing tool disables exactly one step and explains the install."
+          icon={<Cpu size={14} />}
+          actions={
+            <Badge tone={caps?.platformio.available ? "ok" : "warn"}>
+              {caps?.platformio.available ? "builds available" : "builds unavailable"}
+            </Badge>
+          }
+        >
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className="space-y-3">
+              <Field label="PlatformIO path" hint="optional; otherwise PATH">
+                <TextInput
+                  value={draft.platformio_path ?? ""}
+                  onChange={(e) => update("platformio_path", e.target.value || null)}
+                  placeholder={caps?.platformio.path ?? "pio"}
+                />
+              </Field>
+              <Field label="Python path" hint="used by the transformer adapter">
+                <TextInput
+                  value={draft.python_path ?? ""}
+                  onChange={(e) => update("python_path", e.target.value || null)}
+                  placeholder={caps?.python.path ?? "python3"}
+                />
+              </Field>
+              <div className="rounded-lg border border-line bg-black/20 px-3 py-2">
+                <div className="label mb-1">Detected</div>
+                <KV label="PlatformIO" value={caps?.platformio.version ?? "not found"} mono />
+                <KV label="Python" value={caps?.python.version ?? "not found"} mono />
+                <KV label="PyTorch" value={caps?.pytorch.version ?? "not installed"} mono />
+                <KV label="C compiler" value={caps?.cc.version ?? "not found"} mono />
+                <KV label="esptool" value={caps?.esptool.version ?? "not found"} mono />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Toggle
+                checked={draft.onboarding_completed}
+                onChange={(v) => update("onboarding_completed", v)}
+                label="Walkthrough completed"
+                description="Turn this off to see the first-run walkthrough again."
+              />
+              <div className="rounded-lg border border-line bg-black/20 px-3 py-2 text-[11.5px] leading-relaxed text-muted">
+                <div className="label mb-1">What the Micro pipeline runs</div>
+                <ul className="space-y-1">
+                  <li>Built-in byte MLP training and evaluation: this process, no Python.</li>
+                  <li>Transformer architectures: external PyTorch adapter (requires torch).</li>
+                  <li>Firmware build and flash: PlatformIO `pio run` with explicit arguments.</li>
+                  <li>Host verification of exported C: your `cc`, when present.</li>
+                </ul>
+              </div>
+              {!caps?.pytorch.available && (
+                <Banner tone="info" title="PyTorch is optional">
+                  Without it the built-in Atom MLP trainers still cover the whole workflow from dataset to firmware.
+                </Banner>
+              )}
+            </div>
+          </div>
+        </Panel>
+      </div>
+
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Panel title="Keyboard shortcuts" icon={<Keyboard size={14} />}>
           <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 text-[12px]">
@@ -352,7 +433,13 @@ export default function SettingsPage() {
               ["g then p", "Comparison Lab"],
               ["g then i", "Inference"],
               ["g then m", "System Monitor"],
-              ["g then h", "Benchmark History"],
+              ["g then b", "Benchmark Center"],
+              ["g then r", "Runtime Optimization"],
+              ["g then u", "Micro Studio"],
+              ["g then t", "Training Workspace"],
+              ["g then d", "Distillation Lab"],
+              ["g then w", "Hardware Lab"],
+              ["g then y", "Deployment Center"],
               ["g then s", "Settings"],
               ["Esc", "Close dialog"],
             ].map(([keys, label]) => (

@@ -120,7 +120,7 @@ export function ComparisonView({ comparison }: { comparison: Comparison }) {
         </Banner>
       </Panel>
 
-      <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <Panel title="Suite pass rates" subtitle="Per-suite automated check results." icon={<Percent size={14} />}>
           {suiteChart.length ? (
             <SuiteBars suites={suiteChart} labels={comparison.runs.map((r) => r.label)} />

@@ -3,6 +3,7 @@ use atom_compression::ToolStatus;
 use atom_core::{logbuf::LogBuffer, AtomConfig, JobStore, Paths, Result};
 use atom_inference::{probe, BackendStatus};
 use atom_memory::Monitor;
+use atom_micro::MicroStore;
 use atom_models::Library;
 use atom_security::PathGuard;
 use serde::{Deserialize, Serialize};
@@ -67,6 +68,7 @@ pub struct Inner {
     pub runtime: tokio::sync::Mutex<Option<atom_inference::Runtime>>,
     pub runtime_status: RwLock<RuntimeStatus>,
     pub comparisons: ComparisonStore,
+    pub micro: MicroStore,
     pub chats: RwLock<Vec<Conversation>>,
     pub logbuf: Arc<LogBuffer>,
     pub backend: RwLock<BackendStatus>,
@@ -110,6 +112,7 @@ impl AppState {
                 runtime: tokio::sync::Mutex::new(None),
                 runtime_status: RwLock::new(RuntimeStatus::unloaded()),
                 comparisons: ComparisonStore::new(paths.bench_dir()),
+                micro: MicroStore::new(paths.micro_dir()),
                 chats: RwLock::new(chats),
                 logbuf: Arc::new(LogBuffer::new(2000)),
                 backend: RwLock::new(backend),
@@ -257,6 +260,10 @@ pub fn build_guard(config: &AtomConfig) -> PathGuard {
     for root in &config.model_roots {
         roots.push(PathBuf::from(root));
     }
+    for root in &config.dataset_roots {
+        roots.push(PathBuf::from(root));
+    }
+    roots.push(PathBuf::from(&config.data_root));
     PathGuard::new(roots)
 }
 
