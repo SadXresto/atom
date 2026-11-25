@@ -15,6 +15,25 @@ TypeScript + Tailwind interface.
 
 ---
 
+## Screenshots
+
+| Dashboard | Model library |
+| :---: | :---: |
+| ![Dashboard: runtime state, measured memory and CPU, and ATOM Micro progress](docs/screenshots/overview.png) | ![Model library with an imported GGUF, its checksum status and variant filters](docs/screenshots/library.png) |
+| **Compression Studio** | **ATOM Micro — a measured training run** |
+| ![Permanent compression with real per-quantization size estimates and ratios](docs/screenshots/compression.png) | ![Micro Studio training step with the measured loss curve and evaluation metrics](docs/screenshots/micro-training.png) |
+
+Captured from the running application at 1440×900. Every number is either read
+from the machine or parsed from ATOM's own job output — the compression figures
+are real per-tensor size estimates, and the loss curve is the recorded result of
+an actual SGD run. The library entry is a small GGUF fixture
+(`scripts/make_demo_gguf.py`) so the UI can be captured without a multi-gigabyte
+model; llama.cpp is genuinely absent from that machine, which is why the
+quantization formats are marked unavailable rather than filled in with
+plausible-looking values.
+
+---
+
 ## Two optimization modes, deliberately separate
 
 | | Live runtime optimization | Permanent compression |
@@ -127,7 +146,9 @@ scripts/build-desktop.sh
 scripts\build-desktop.ps1
 ```
 
-Installers land in `apps/desktop/target/release/bundle/`. Pushing a `v*` tag runs
+Prebuilt installers for both platforms are published on the
+[Releases page](https://github.com/SadXresto/atom/releases). Installers land in
+`apps/desktop/target/release/bundle/` when you build locally. Pushing a `v*` tag runs
 [.github/workflows/desktop.yml](.github/workflows/desktop.yml), which builds and
 attaches both platforms' installers to the GitHub release. Full prerequisites and
 data locations: [apps/desktop/README.md](apps/desktop/README.md).
@@ -203,11 +224,12 @@ the build environment and what was not.
   are verified against stub executables (`crates/atom-teststubs`), but no real
   multi-GB conversion or real model inference was performed here. The UI still
   reports a missing backend as unavailable rather than simulating it.
-- **Desktop installers are not built in this environment.** The Tauri shell,
-  embedded-UI serving and bundle configuration are complete, but this Linux
-  sandbox cannot install WebKitGTK/GTK development packages (no root), so the
-  `.deb`/AppImage/MSI/NSIS artifacts must be produced by the build scripts above
-  or by the desktop workflow.
+- **Desktop installers are produced by CI, not in the authoring sandbox.** The
+  `.deb`, AppImage, MSI and NSIS packages in the release come from
+  [.github/workflows/desktop.yml](.github/workflows/desktop.yml). The native
+  window itself has not been opened in this environment (no display and no
+  WebKitGTK runtime), so first-launch behaviour is covered by the checklist in
+  [docs/VERIFICATION.md](docs/VERIFICATION.md) rather than by an observed run.
 - Model downloads are **not implemented**; the Settings toggle only records
   intent for a future opt-in, checksum-verified flow.
 - **ATOM Micro firmware steps need PlatformIO** (`pip install platformio`). The
