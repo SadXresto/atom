@@ -3,6 +3,13 @@ name = "atom-api"
 version.workspace = true
 edition.workspace = true
 
+[features]
+# Compile the built UI into the binary. The desktop app enables this so a
+# shipped .exe/.deb contains the interface and never needs frontend/dist on the
+# user's disk.
+default = []
+embed-ui = ["dep:include_dir"]
+
 [lib]
 name = "atom_api"
 path = "src/lib.rs"
@@ -23,6 +30,7 @@ atom-models = { path = "../../crates/atom-models" }
 atom-security = { path = "../../crates/atom-security" }
 axum.workspace = true
 chrono.workspace = true
+include_dir = { version = "0.7", optional = true }
 futures.workspace = true
 serde.workspace = true
 serde_json.workspace = true

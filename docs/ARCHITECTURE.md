@@ -4,12 +4,15 @@
 
 ```
 React UI ──HTTP/SSE──> atom-api (axum) ──> atom-engine ──> crates/*
-        └── same origin ──> Tauri window (desktop)
+        └── embedded assets, served from the same origin
+Tauri window (desktop) ──> the UI origin
 ```
 
-The desktop shell starts the same axum router on an ephemeral loopback port and
-points the window at it. There is exactly one implementation of every operation,
-one API contract and one UI.
+The desktop shell starts the same axum router on an ephemeral loopback port. The
+UI is compiled into the executable (`atom-api` feature `embed-ui`, `include_dir`),
+so the window never needs `frontend/dist` on the user's disk and no browser is
+involved. There is exactly one implementation of every operation, one API
+contract and one UI.
 
 `atom-engine::AppState` is the composition root: configuration, model library,
 job registry, system monitor, the single live llama-server process, benchmark

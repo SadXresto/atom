@@ -112,8 +112,25 @@ bun run dev                                            # http://127.0.0.1:3003
 bun run build                                          # writes frontend/dist
 ```
 
-Desktop app: see [apps/desktop/README.md](apps/desktop/README.md) (needs
-WebKitGTK / Xcode / WebView2; excluded from the portable workspace).
+## Desktop app (Windows + Linux)
+
+ATOM runs as a native desktop application: the Rust core, the API and the
+compiled interface are embedded in one executable, the window is served from an
+ephemeral loopback port, and no browser, terminal or `frontend/dist` folder is
+needed on the target machine.
+
+```bash
+# Linux: .deb + AppImage (needs WebKitGTK 4.1 dev packages)
+scripts/build-desktop.sh
+
+# Windows: NSIS .exe + .msi (run in PowerShell, needs Rust MSVC + WebView2)
+scripts\build-desktop.ps1
+```
+
+Installers land in `apps/desktop/target/release/bundle/`. Pushing a `v*` tag runs
+[.github/workflows/desktop.yml](.github/workflows/desktop.yml), which builds and
+attaches both platforms' installers to the GitHub release. Full prerequisites and
+data locations: [apps/desktop/README.md](apps/desktop/README.md).
 
 CLI:
 
@@ -141,7 +158,7 @@ crates/
 apps/
   api/              axum HTTP + SSE surface, serves the built UI
   cli/              `atom` command
-  desktop/          Tauri 2 shell (separate workspace; GUI libs required)
+  desktop/          Tauri 2 shell: embeds the UI, Windows/Linux bundle config, icons
 frontend/
   src/components/   design system, charts, job console, comparison view
   src/pages/        Onboarding, Overview, Library, Compression, RuntimeOptimization,
@@ -186,7 +203,11 @@ the build environment and what was not.
   are verified against stub executables (`crates/atom-teststubs`), but no real
   multi-GB conversion or real model inference was performed here. The UI still
   reports a missing backend as unavailable rather than simulating it.
-- **Desktop shell not compiled here** (no WebKitGTK/GTK dev packages).
+- **Desktop installers are not built in this environment.** The Tauri shell,
+  embedded-UI serving and bundle configuration are complete, but this Linux
+  sandbox cannot install WebKitGTK/GTK development packages (no root), so the
+  `.deb`/AppImage/MSI/NSIS artifacts must be produced by the build scripts above
+  or by the desktop workflow.
 - Model downloads are **not implemented**; the Settings toggle only records
   intent for a future opt-in, checksum-verified flow.
 - **ATOM Micro firmware steps need PlatformIO** (`pip install platformio`). The

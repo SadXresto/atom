@@ -170,3 +170,39 @@ JSON it prints in **Benchmark Center**.
 - Quality is labelled "automated estimate" in the comparison cards, the report
   header and the README.
 - The Settings network switch states plainly that no download path exists.
+
+## How to verify the desktop build
+
+The desktop shell is verified by building its installer on the target OS and
+opening the app; there is nothing to verify in a browser.
+
+```bash
+# Linux
+scripts/build-desktop.sh
+sudo apt install ./apps/desktop/target/release/bundle/deb/ATOM_0.1.0_amd64.deb
+atom   # or launch ATOM from the application menu
+```
+
+```powershell
+# Windows
+powershell -ExecutionPolicy Bypass -File scripts\build-desktop.ps1
+# then run the installer from apps\desktop\target\release\bundle\nsis
+```
+
+Checks that matter:
+
+1. The window opens with the ATOM dashboard and the title bar icon, with **no
+   browser and no terminal** running.
+2. `curl http://127.0.0.1:<port>` is irrelevant — the port is ephemeral — but the
+   System Monitor page must show live samples, so the in-process API is serving.
+3. Unplug the network: the app keeps working (everything is local).
+4. Close the window: the process exits and nothing stays listening
+   (`ss -ltnp | grep atom`).
+5. The install directory contains one executable and its icons; the app starts
+   without `frontend/dist` anywhere on disk, because the UI is embedded.
+
+This Linux sandbox has no root and no GUI libraries, so the artifacts themselves
+were not produced here. What *was* verified here: the `embed-ui` feature builds,
+an `atom-api` binary compiled with it serves the interface (HTML, hashed assets
+with correct content types, SPA deep-link fallback, `/api` routes) after
+`frontend/dist` is moved away, and the full workspace test suite still passes.

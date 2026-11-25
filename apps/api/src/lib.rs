@@ -61,8 +61,58 @@ struct ConfirmQuery {
     delete_file: Option<bool>,
 }
 
+/// Serve the UI that was compiled into the binary (desktop builds). Unknown
+/// extensionless paths fall back to index.html so client-side routes survive a
+/// reload.
+#[cfg(feature = "embed-ui")]
+mod embedded {
+    use axum::http::{header, StatusCode, Uri};
+    use axum::response::{IntoResponse, Response};
+    use include_dir::{include_dir, Dir};
+
+    static DIST: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/../../frontend/dist");
+
+    fn content_type(path: &str) -> &'static str {
+        match path.rsplit('.').next().unwrap_or_default() {
+            "html" => "text/html; charset=utf-8",
+            "js" | "mjs" => "text/javascript; charset=utf-8",
+            "css" => "text/css; charset=utf-8",
+            "svg" => "image/svg+xml",
+            "png" => "image/png",
+            "jpg" | "jpeg" => "image/jpeg",
+            "webp" => "image/webp",
+            "gif" => "image/gif",
+            "ico" => "image/x-icon",
+            "woff2" => "font/woff2",
+            "woff" => "font/woff",
+            "ttf" => "font/ttf",
+            "json" => "application/json",
+            "txt" | "md" => "text/plain; charset=utf-8",
+            _ => "application/octet-stream",
+        }
+    }
+
+    pub async fn serve(uri: Uri) -> Response {
+        let requested = uri.path().trim_start_matches('/');
+        let requested = if requested.is_empty() { "index.html" } else { requested };
+        let file = DIST.get_file(requested).or_else(|| {
+            if std::path::Path::new(requested).extension().is_none() {
+                DIST.get_file("index.html")
+            } else {
+                None
+            }
+        });
+        match file {
+            Some(file) => {
+                let path = file.path().to_string_lossy().to_string();
+                ([(header::CONTENT_TYPE, content_type(&path))], file.contents()).into_response()
+            }
+            None => (StatusCode::NOT_FOUND, "asset not found").into_response(),
+        }
+    }
+}
+
 pub fn router(state: AppState) -> Router {
-    let dist = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../frontend/dist");
     let api = Router::new()
         .route("/health", get(health))
         .route("/overview", get(overview))
@@ -103,16 +153,27 @@ pub fn router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::max(64 * 1024 * 1024 * 1024));
 
     let app = Router::new().nest("/api", api);
-    if dist.is_dir() {
-        let index = dist.join("index.html");
-        let serve = tower_http::services::ServeDir::new(&dist)
-            .fallback(tower_http::services::ServeFile::new(index));
-        app.fallback_service(serve)
-    } else {
-        app.fallback(get(missing_frontend))
+
+    #[cfg(feature = "embed-ui")]
+    {
+        app.fallback(get(embedded::serve))
+    }
+
+    #[cfg(not(feature = "embed-ui"))]
+    {
+        let dist = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../frontend/dist");
+        if dist.is_dir() {
+            let index = dist.join("index.html");
+            let serve = tower_http::services::ServeDir::new(&dist)
+                .fallback(tower_http::services::ServeFile::new(index));
+            app.fallback_service(serve)
+        } else {
+            app.fallback(get(missing_frontend))
+        }
     }
 }
 
+#[cfg(not(feature = "embed-ui"))]
 async fn missing_frontend() -> Response {
     (
         StatusCode::OK,

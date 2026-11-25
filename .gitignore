@@ -1,4 +1,5 @@
 /target
+apps/desktop/target
 **/node_modules
 frontend/dist
 .run/

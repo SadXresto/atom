@@ -14,6 +14,8 @@ impl Paths {
         let root = std::env::var_os("ATOM_HOME")
             .map(PathBuf::from)
             .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".atom")))
+            // Windows does not set HOME for GUI applications.
+            .or_else(|| std::env::var_os("USERPROFILE").map(|h| PathBuf::from(h).join(".atom")))
             .unwrap_or_else(|| PathBuf::from(".atom"));
         Paths { root }
     }
