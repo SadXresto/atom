@@ -376,6 +376,10 @@ the build environment and what was not.
 - **The classification smoke test used a synthetic fixture**, not a real user
   dataset. The exported C header was compiled and self-tested on the host; it has
   not been built for or run on a microcontroller.
+- **The Windows desktop window was not observed on Windows hardware here.** The
+  fix follows Tauri's documented workaround for the Windows webview deadlock and
+  is compiled by the desktop workflow, but the visible window and installer were
+  not launched on a Windows machine in this environment.
 - **Chart rendering was checked at 1440 px** in the cloud browser. Very narrow
   window widths reflow the panels but were not exhaustively measured.
 - **Transformer Micro architectures need PyTorch** (`pip install torch`). The

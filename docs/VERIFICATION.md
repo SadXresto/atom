@@ -179,7 +179,7 @@ opening the app; there is nothing to verify in a browser.
 ```bash
 # Linux
 scripts/build-desktop.sh
-sudo apt install ./apps/desktop/target/release/bundle/deb/ATOM_0.1.0_amd64.deb
+sudo apt install ./apps/desktop/target/release/bundle/deb/ATOM_0.2.0_amd64.deb
 atom   # or launch ATOM from the application menu
 ```
 
@@ -207,6 +207,29 @@ an `atom-api` binary compiled with it serves the interface (HTML, hashed assets
 with correct content types, SPA deep-link fallback, `/api` routes) after
 `frontend/dist` is moved away, and the full workspace test suite still passes.
 
+
+## 0.2 update — Windows startup fix
+
+The desktop shell created its webview synchronously inside Tauri's `setup`
+handler. Tauri documents that this **deadlocks on Windows** (wry#583): the
+window never appears, while the same code opens normally on Linux. The shell now
+builds the window on a worker thread on Windows, keeps the synchronous path on
+Linux (GTK requires the main thread), and gives the webview an explicit writable
+data directory (`<ATOM_HOME>/webview`) so WebView2 cannot fail on a missing
+profile folder.
+
+Failures are no longer silent on Windows: startup errors are written to
+`%USERPROFILE%\.atom\logs\desktop.log`, shown in a native `MessageBoxW` dialog,
+and the panic hook reports crashes the same way. If the WebView2 runtime is not
+detected under `Program Files`/`LOCALAPPDATA`, the error adds the Evergreen
+Runtime download link. The NSIS/MSI installers now embed the WebView2
+bootstrapper instead of downloading it during installation.
+
+| Check | How | Status |
+| --- | --- | --- |
+| Windows compile and installer | `.github/workflows/desktop.yml` on `windows-latest` | see the workflow run linked in the commit/PR |
+| Windows window appears | launch the installer on a real Windows 10/11 machine | **not run here** — no Windows host or display in this environment |
+| Linux desktop build | `scripts/build-desktop.sh` | not re-run (no WebKitGTK/GTK headers here) |
 
 ## 0.2 update — classification and UI fixes
 

@@ -10,8 +10,8 @@ folder to ship. Closing the window stops the app.
 
 | Platform | Artifact | Built by |
 | --- | --- | --- |
-| Windows 10/11 x64 | `ATOM_0.1.0_x64-setup.exe` (NSIS), `ATOM_0.1.0_x64_en-US.msi` | `scripts\build-desktop.ps1` |
-| Linux x86_64 | `ATOM_0.1.0_amd64.deb`, `ATOM_0.1.0_amd64.AppImage` | `scripts/build-desktop.sh` |
+| Windows 10/11 x64 | `ATOM_0.2.0_x64-setup.exe` (NSIS), `ATOM_0.2.0_x64_en-US.msi` | `scripts\build-desktop.ps1` |
+| Linux x86_64 | `ATOM_0.2.0_amd64.deb`, `ATOM_0.2.0_amd64.AppImage` | `scripts/build-desktop.sh` |
 
 The installers are produced from the same source on the corresponding OS. To get
 both without owning a Windows machine, push a `v*` tag (or run the workflow
@@ -26,8 +26,8 @@ Prerequisites:
 - **Rust (MSVC)** from <https://rustup.rs>, with the *Desktop development with
   C++* workload from Visual Studio Build Tools.
 - **Bun** (<https://bun.sh>) and **Node.js** on `PATH` (`npx` runs the Tauri CLI).
-- WebView2 runtime — preinstalled on Windows 10/11. The installer uses the
-  download bootstrapper when it is missing.
+- WebView2 runtime — preinstalled on Windows 10/11. The installer embeds the
+  bootstrapper and runs it when the runtime is missing.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\build-desktop.ps1
@@ -36,6 +36,18 @@ powershell -ExecutionPolicy Bypass -File scripts\build-desktop.ps1 nsis
 ```
 
 Installers appear in `apps\desktop\target\release\bundle\{nsis,msi}`.
+
+## Windows troubleshooting
+
+- The window is created on a worker thread because creating a webview from a
+  synchronous Tauri setup handler deadlocks on Windows (wry#583).
+- Startup failures are shown in a native dialog and appended to
+  `%USERPROFILE%\.atom\logs\desktop.log`; include that file in any bug report.
+- If ATOM reports that WebView2 is missing, install the Evergreen Runtime from
+  <https://developer.microsoft.com/microsoft-edge/webview2/> and start ATOM
+  again. The installer normally does this for you.
+- The app keeps its data in `%USERPROFILE%\.atom`; uninstalling leaves it in
+  place.
 
 ## Build on Linux
 
@@ -61,12 +73,12 @@ scripts/build-desktop.sh deb        # single target
 ```
 
 Artifacts appear in `apps/desktop/target/release/bundle/{deb,appimage}`. Install
-the `.deb` with `sudo apt install ./ATOM_0.1.0_amd64.deb`, or make the AppImage
+the `.deb` with `sudo apt install ./ATOM_0.2.0_amd64.deb`, or make the AppImage
 executable and run it directly:
 
 ```bash
-chmod +x ATOM_0.1.0_amd64.AppImage
-./ATOM_0.1.0_amd64.AppImage
+chmod +x ATOM_0.2.0_amd64.AppImage
+./ATOM_0.2.0_amd64.AppImage
 ```
 
 ## Run from source (development)
