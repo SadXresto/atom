@@ -251,12 +251,12 @@ pub fn import_model(
     let gguf = GgufFile::open(&path)?;
     let summary = ModelSummary::from_gguf(&gguf, gguf.get_u64("general.file_type").unwrap_or(0) as u32);
 
-    let sha256 = if verify {
-        on_progress(size_bytes, size_bytes);
-        Some(sha256_file(&path)?.0)
-    } else {
-        None
-    };
+    // The checksum is recorded on every import: it is what makes duplicate
+    // detection and later tamper checks meaningful. `verify` is retained for
+    // API compatibility and no longer disables hashing.
+    let _ = verify;
+    on_progress(size_bytes, size_bytes);
+    let sha256 = Some(sha256_file(&path)?.0);
 
     let label = summary
         .name

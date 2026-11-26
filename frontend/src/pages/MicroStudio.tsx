@@ -313,6 +313,13 @@ export default function MicroStudio() {
             <Badge tone="accent">
               step {nextStep} of 11
             </Badge>
+            <Button
+              size="sm"
+              onClick={() => navigate(`/micro/${project.id}/classifier`)}
+              icon={<Boxes size={13} />}
+            >
+              Classify CSV
+            </Button>
             <Button onClick={() => go(nextStep)} icon={<ArrowRight size={13} />}>
               Continue
             </Button>

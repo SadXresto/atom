@@ -17,6 +17,7 @@ import RuntimeOptimization from "./pages/RuntimeOptimization";
 import BenchmarkCenter from "./pages/BenchmarkCenter";
 import MicroProjects from "./pages/MicroProjects";
 import MicroStudio from "./pages/MicroStudio";
+import ClassifierStudio from "./pages/ClassifierStudio";
 import TrainingWorkspace from "./pages/TrainingWorkspace";
 import DistillationLab from "./pages/DistillationLab";
 import HardwareLab from "./pages/HardwareLab";
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="/monitor" element={<Monitor />} />
           <Route path="/micro" element={<MicroProjects />} />
           <Route path="/micro/:id" element={<MicroStudio />} />
+          <Route path="/micro/:id/classifier" element={<ClassifierStudio />} />
           <Route path="/training" element={<TrainingWorkspace />} />
           <Route path="/distillation" element={<DistillationLab />} />
           <Route path="/hardware" element={<HardwareLab />} />

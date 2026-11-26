@@ -206,3 +206,38 @@ were not produced here. What *was* verified here: the `embed-ui` feature builds,
 an `atom-api` binary compiled with it serves the interface (HTML, hashed assets
 with correct content types, SPA deep-link fallback, `/api` routes) after
 `frontend/dist` is moved away, and the full workspace test suite still passes.
+
+
+## 0.2 update — classification and UI fixes
+
+Environment unchanged: Linux cloud VM, no llama.cpp, no PlatformIO, no board, no
+display. Commands below were run in this session.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Workspace tests | `cargo test --workspace` | **89 passed, 0 failed** (7 new classifier tests included) |
+| Classifier unit tests | `cargo test -p atom-micro --lib` | 36 passed, 7 new |
+| Split assignment invariant | `cargo test -p atom-micro split_is_assigned_once` | passes: membership and index vectors come from one assignment; every row appears exactly once; duplicates share a split; a rebuild reproduces the same split |
+| Frontend typecheck | `./node_modules/.bin/tsc --noEmit` | clean |
+| Frontend build | `bun run build` | built, 998 kB JS / 47 kB CSS |
+| API build | `cargo build --release -p atom-api` | succeeded |
+| CSV profile | `POST /micro/projects/{id}/classification/profile` | 600 rows; `wind_kmh` numeric with 7 invalid cells, `humidity_pct` 12 missing, `temperature_c` 15 missing |
+| Dataset import | `POST …/classification/dataset` | 12 design features, 3 classes (186 / 166 / 248), split 420 / 90 / 90, 27 imputed missing values, 0 duplicate rows |
+| Training job | `POST …/classification/train` | succeeded; 80 epochs in 9 ms; 39 parameters; test accuracy **0.8778**, macro F1 0.8784, weighted F1 0.8804, log loss 0.3877 |
+| Confusion matrix | job result | `[[29,0,5],[0,20,5],[0,1,30]]` on 90 held-out rows |
+| Classifier export | `POST …/classification/export` | 4 files + manifest; JSON reloaded and re-scored 90 rows at the same accuracy; `cc` compiled the self-test which printed `predicted=heating actual=heating classes=3 features=12` |
+| Duplicate GGUF import | `POST /models` twice with the same file | second job failed: "already in the library … duplicate copy was discarded"; models directory unchanged |
+| Malformed GGUF | `POST /models` with a 12-byte non-GGUF file | failed: "not a GGUF file (missing GGUF magic)" |
+| Path allowlist | `POST /models` with `/etc/passwd` | failed: "outside the approved model and workspace directories" |
+| System Monitor axis labels | Playwright, 1440 px | ticks render `0 B … 572 MiB` and `0% … 100%`; no clipped `1%` / `00M` |
+| Library drop zone | Playwright, 1440 px | text is "Drop a GGUF model here or browse files"; no absolute workspace path in the hint |
+| Classification UI | Playwright, `/micro/<id>/classifier` | profile table, class distribution, 87.78 % accuracy, macro/weighted scores, loss curve and confusion matrix all render; export panel shows the bundle |
+
+### Still blocked in this VM
+
+- Real `llama-quantize` / `llama-server` runs: neither binary is installed. The
+  stub-driven tests remain the only end-to-end evidence for those paths.
+- PlatformIO firmware build/flash and device benchmarks: no `pio`, no board.
+- Native desktop window: no WebKitGTK/GTK headers and no display.
+- A real user CSV: the classification numbers above come from the synthetic
+  fixture (`scripts/make_classification_fixture.py`), which the README labels.

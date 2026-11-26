@@ -72,7 +72,7 @@ dependencies = [
 
 [[package]]
 name = "atom-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atom-bench",
  "atom-compression",
@@ -99,7 +99,7 @@ dependencies = [
 
 [[package]]
 name = "atom-bench"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atom-core",
  "chrono",
@@ -110,7 +110,7 @@ dependencies = [
 
 [[package]]
 name = "atom-compression"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atom-core",
  "atom-inference",
@@ -125,7 +125,7 @@ dependencies = [
 
 [[package]]
 name = "atom-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "serde",
@@ -137,7 +137,7 @@ dependencies = [
 
 [[package]]
 name = "atom-desktop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atom-api",
  "atom-core",
@@ -153,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "atom-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atom-bench",
  "atom-compression",
@@ -174,7 +174,7 @@ dependencies = [
 
 [[package]]
 name = "atom-inference"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atom-core",
  "atom-security",
@@ -189,7 +189,7 @@ dependencies = [
 
 [[package]]
 name = "atom-memory"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "serde",
@@ -198,7 +198,7 @@ dependencies = [
 
 [[package]]
 name = "atom-micro"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atom-core",
  "atom-security",
@@ -210,7 +210,7 @@ dependencies = [
 
 [[package]]
 name = "atom-models"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atom-core",
  "atom-security",
@@ -222,7 +222,7 @@ dependencies = [
 
 [[package]]
 name = "atom-security"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atom-core",
  "hex",

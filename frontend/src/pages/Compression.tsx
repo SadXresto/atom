@@ -340,6 +340,17 @@ export default function Compression() {
                   <div className="grid gap-x-5 sm:grid-cols-2">
                     <KV label="New model" value={result.model.label} />
                     <KV label="Size" value={`${bytes(result.validation.output_bytes)} (was ${bytes(result.validation.source_bytes)})`} mono />
+                    <KV
+                      label="Compression ratio"
+                      value={`${(result.validation.source_bytes / Math.max(1, result.validation.output_bytes)).toFixed(2)}× smaller`}
+                      mono
+                    />
+                    <KV
+                      label="Estimated before run"
+                      value={selectedFormat ? `${bytes(selectedFormat.estimated_bytes)} (estimate)` : "—"}
+                      mono
+                    />
+                    <KV label="Output path" value={result.model.path} mono />
                     <KV label="Dominant tensors" value={result.validation.dominant_quant} mono />
                     <KV label="Tensors" value={result.validation.tensor_count} mono />
                     <KV label="Tool time" value={`${(result.duration_ms / 1000).toFixed(1)} s`} mono />

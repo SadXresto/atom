@@ -12,6 +12,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  ShieldAlert,
   ShieldCheck,
   Trash2,
   Upload,
@@ -104,27 +105,6 @@ export default function Library() {
     }
   };
 
-  const uploadFiles = async (files: FileList | File[]) => {
-    const file = Array.from(files).find((f) => f.name.toLowerCase().endsWith(".gguf"));
-    if (!file) {
-      toast("Only .gguf files can be imported", "error");
-      return;
-    }
-    setUploading(true);
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      const result = await api<{ job_id: string }>("/models/upload", { method: "POST", body });
-      setJobId(result.job_id);
-      setImportOpen(true);
-      toast(`Uploaded ${file.name}; indexing…`, "ok");
-    } catch (e) {
-      toast((e as Error).message, "error");
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const verify = async (model: ModelRecord) => {
     try {
       const result = await api<{ job_id: string }>(`/models/${model.id}/verify`, { method: "POST" });
@@ -185,47 +165,23 @@ export default function Library() {
         <MiniCard label="Compressed variants" value={bytes(totals.compressed)} icon={<Layers size={14} />} />
       </div>
 
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
+      <DropZone
+        uploading={uploading}
+        inputRef={fileInput}
+        onFile={async (file) => {
+          setUploading(true);
+          try {
+            const body = new FormData();
+            body.append("file", file);
+            const result = await api<{ job_id: string }>("/models/upload", { method: "POST", body });
+            setJobId(result.job_id);
+            setImportOpen(true);
+            toast(`${file.name} uploaded; indexing now`, "ok");
+          } finally {
+            setUploading(false);
+          }
         }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          void uploadFiles(e.dataTransfer.files);
-        }}
-        className={cx(
-          "mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed px-4 py-3 transition-colors",
-          dragging ? "border-accent/60 bg-accent/[0.06]" : "border-line bg-white/[0.012]",
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-white/[0.03] text-accent">
-            {uploading ? <Loader2 size={15} className="animate-spin" /> : <FileUp size={15} />}
-          </span>
-          <div>
-            <div className="text-[12.5px] text-ink-dim">Drop a .gguf file here to import</div>
-            <div className="text-[11px] text-muted">
-              Copied into <span className="mono-num">{models[0]?.path ? models[0].path.split("/").slice(0, -1).join("/") : "the models directory"}</span>{" "}
-              and checksummed. Source files are never altered.
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".gguf"
-            className="hidden"
-            onChange={(e) => e.target.files && void uploadFiles(e.target.files)}
-          />
-          <Button size="sm" onClick={() => fileInput.current?.click()} busy={uploading}>
-            Choose file
-          </Button>
-        </div>
-      </div>
+      />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
@@ -473,7 +429,23 @@ export default function Library() {
                 <KV label="Size" value={bytes(detailModel.size_bytes)} mono />
                 <KV label="Path" value={detailModel.path} mono />
                 <KV label="Imported" value={dateTime(detailModel.imported_at)} />
+                <KV label="Storage" value={detailModel.path.split(/[\\/]/).slice(0, -1).join("/") || "—"} mono />
                 <KV label="SHA-256" value={shortHash(detailModel.sha256)} mono hint={detailModel.sha256 ?? undefined} />
+                <KV
+                  label="Integrity"
+                  value={
+                    <span className="flex items-center gap-1.5">
+                      <VerificationBadge verification={detailModel.verification} />
+                      <span className="text-muted">
+                        {detailModel.verification.state === "verified"
+                          ? `re-hashed ${dateTime(detailModel.verification.checked_at)}`
+                          : detailModel.verification.state === "failed"
+                            ? detailModel.verification.reason
+                            : "no checksum check has run since import"}
+                      </span>
+                    </span>
+                  }
+                />
               </div>
               <div>
                 <div className="label mb-1.5">Architecture</div>
@@ -489,7 +461,7 @@ export default function Library() {
             <div>
               <div className="label mb-1.5">Tensor mix</div>
               <div className="space-y-2">
-                {detailModel.summary.tensor_types.slice(0, 6).map((type) => (
+                {detailModel.summary.tensor_types.slice(0, 12).map((type) => (
                   <div key={type.id}>
                     <div className="mb-1 flex items-center justify-between text-[11.5px]">
                       <span className="text-ink-dim">
@@ -502,7 +474,9 @@ export default function Library() {
                 ))}
               </div>
               <div className="mt-2 text-[11px] text-muted">
-                {detailModel.summary.tensor_count} tensors · alignment {detailModel.summary.alignment} bytes
+                {detailModel.summary.tensor_count} tensors · {detailModel.summary.tensor_types.length} distinct types ·
+                alignment {detailModel.summary.alignment} bytes
+                {detailModel.summary.tensor_types.length > 12 && " · showing the 12 largest shares"}
               </div>
             </div>
 
@@ -655,6 +629,170 @@ function MiniCard({ label, value, icon }: { label: string; value: string; icon: 
         <div className="label">{label}</div>
         <div className="mono-num text-[15px] text-ink">{value}</div>
       </div>
+    </div>
+  );
+}
+
+const GGUF_MAGIC = [0x47, 0x47, 0x55, 0x46];
+
+/** Cheap client-side gate so an obviously wrong file never starts a job. */
+async function validateGgufFile(file: File): Promise<void> {
+  if (!/\.gguf$/i.test(file.name)) {
+    throw new Error("Only .gguf files can be imported. Convert the model to GGUF first.");
+  }
+  if (file.size < 32) {
+    throw new Error(`“${file.name}” is only ${file.size} bytes, which is too small to be a GGUF model.`);
+  }
+  const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  const looksRight = GGUF_MAGIC.every((byte, index) => head[index] === byte);
+  if (!looksRight) {
+    throw new Error(`“${file.name}” is not a GGUF file: the first four bytes are not the GGUF signature.`);
+  }
+  const version = new DataView(head.buffer).getUint32(4, true);
+  if (version < 1 || version > 3) {
+    throw new Error(`“${file.name}” declares GGUF v${version}; ATOM parses GGUF v1–v3.`);
+  }
+}
+
+function DropZone({
+  uploading,
+  inputRef,
+  onFile,
+}: {
+  uploading: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onFile: (file: File) => Promise<void>;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const [status, setStatus] = useState<{ kind: "idle" | "working" | "ok" | "error"; message?: string }>({
+    kind: "idle",
+  });
+  const depth = useRef(0);
+
+  const pick = () => inputRef.current?.click();
+
+  const accept = async (files: FileList | File[]) => {
+    const file = Array.from(files)[0];
+    if (!file) return;
+    setStatus({ kind: "working", message: `Checking ${file.name}…` });
+    try {
+      await validateGgufFile(file);
+      await onFile(file);
+      setStatus({ kind: "ok", message: `${file.name} accepted — parsing metadata and hashing` });
+    } catch (error) {
+      setStatus({ kind: "error", message: (error as Error).message });
+    }
+  };
+
+  const working = uploading || status.kind === "working";
+  const tone =
+    status.kind === "error"
+      ? "border-bad/45 bg-bad/[0.06]"
+      : status.kind === "ok"
+        ? "border-ok/40 bg-ok/[0.05]"
+        : dragging
+          ? "border-accent/60 bg-accent/[0.07]"
+          : "border-line bg-white/[0.012] hover:border-line-strong hover:bg-white/[0.02]";
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label="Import a GGUF model: drop a file here or browse"
+      onClick={pick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          pick();
+        }
+      }}
+      onDragEnter={(event) => {
+        event.preventDefault();
+        depth.current += 1;
+        setDragging(true);
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+      }}
+      onDragLeave={() => {
+        depth.current = Math.max(0, depth.current - 1);
+        if (depth.current === 0) setDragging(false);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        depth.current = 0;
+        setDragging(false);
+        void accept(event.dataTransfer.files);
+      }}
+      className={cx(
+        "mb-4 cursor-pointer rounded-xl border border-dashed px-4 py-4 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/50",
+        tone,
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={cx(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border",
+              status.kind === "error"
+                ? "border-bad/40 bg-bad/10 text-bad"
+                : status.kind === "ok"
+                  ? "border-ok/40 bg-ok/10 text-ok"
+                  : "border-line bg-white/[0.03] text-accent",
+            )}
+          >
+            {working ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : status.kind === "error" ? (
+              <ShieldAlert size={16} />
+            ) : status.kind === "ok" ? (
+              <BadgeCheck size={16} />
+            ) : (
+              <FileUp size={16} />
+            )}
+          </span>
+          <div className="min-w-0">
+            <div className="text-[12.5px] text-ink-dim">Drop a GGUF model here or browse files</div>
+            <div className="text-[11px] text-muted">
+              ATOM copies the file into its library, parses the header and records a SHA-256 checksum.
+              Your source file is never modified.
+            </div>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".gguf,application/octet-stream"
+            className="hidden"
+            onChange={(event) => {
+              if (event.target.files) void accept(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <Button
+            size="sm"
+            busy={working}
+            onClick={(event) => {
+              event.stopPropagation();
+              pick();
+            }}
+          >
+            Browse files
+          </Button>
+        </div>
+      </div>
+      {status.message && (
+        <div
+          className={cx(
+            "mt-2.5 flex items-start gap-1.5 text-[11.5px] leading-relaxed",
+            status.kind === "error" ? "text-bad" : status.kind === "ok" ? "text-ok" : "text-muted",
+          )}
+        >
+          <span className="min-w-0 break-words">{status.message}</span>
+        </div>
+      )}
     </div>
   );
 }

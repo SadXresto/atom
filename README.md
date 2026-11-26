@@ -3,7 +3,9 @@
 A local-first desktop application for importing GGUF language models, tuning how
 they run, **permanently** compressing them into separate files, comparing
 original vs. compressed behaviour with measured numbers, and training/exporting
-tiny specialist models for microcontrollers with **ATOM Micro**.
+tiny specialist models for microcontrollers with **ATOM Micro** — including a
+tabular classification workflow that trains on your own CSV and reports real
+accuracy, precision, recall, F1 and a confusion matrix.
 
 Built in Rust (Tauri shell, axum API, llama.cpp backend) with a React +
 TypeScript + Tailwind interface.
@@ -19,20 +21,38 @@ TypeScript + Tailwind interface.
 
 | Dashboard | Model library |
 | :---: | :---: |
-| ![Dashboard: runtime state, measured memory and CPU, and ATOM Micro progress](docs/screenshots/overview.png) | ![Model library with an imported GGUF, its checksum status and variant filters](docs/screenshots/library.png) |
+| ![Dashboard: runtime state, measured memory and CPU, and ATOM Micro progress](docs/screenshots/overview.png) | ![Model library with the GGUF drop zone, an imported model and its checksum status](docs/screenshots/library.png) |
+| **System Monitor** | **ATOM Micro — classification** |
+| ![System Monitor with separately labelled system RAM, ATOM RSS and llama-server RSS on charts whose axes show full units](docs/screenshots/monitor.png) | ![Classification workspace: real CSV profiles, class distribution, measured accuracy and macro scores, confusion matrix and export](docs/screenshots/classifier.png) |
 | **Compression Studio** | **ATOM Micro — a measured training run** |
 | ![Permanent compression with real per-quantization size estimates and ratios](docs/screenshots/compression.png) | ![Micro Studio training step with the measured loss curve and evaluation metrics](docs/screenshots/micro-training.png) |
 
-Captured from the running application at 1440×900. Every number is either read
-from the machine or parsed from ATOM's own job output — the compression figures
-are real per-tensor size estimates, and the loss curve is the recorded result of
-an actual SGD run. The library entry is a small GGUF fixture
-(`scripts/make_demo_gguf.py`) so the UI can be captured without a multi-gigabyte
-model; llama.cpp is genuinely absent from that machine, which is why the
-quantization formats are marked unavailable rather than filled in with
-plausible-looking values.
+Captured from the running application at 1440 px wide. Every number is either
+read from the machine or computed by ATOM: the compression figures are real
+per-tensor size estimates, the loss curve is the recorded result of an actual SGD
+run, and the classifier scores come from predictions on a held-out split.
+
+The model in the library is a small GGUF fixture (`scripts/make_demo_gguf.py`) and
+the classifier was trained on a **synthetic CSV generated for the smoke test**
+(`scripts/make_classification_fixture.py`). They exist so the workflow can be
+exercised without a multi-gigabyte model or someone's private data. llama.cpp and
+PlatformIO are genuinely absent from that machine, which is why those panels show
+an unavailable state instead of plausible-looking values.
 
 ---
+
+## Status at 0.2
+
+| Area | Label | What that means here |
+| --- | --- | --- |
+| GGUF import, inspection, checksums, duplicate detection | **Available** | Parsed by ATOM's own header reader; SHA-256 recorded on every import |
+| Runtime tuning (context, threads, batch, mmap, KV cache) | **Requires external dependency** | Needs `llama-server`; verified against a stub process, not a real model |
+| Permanent compression | **Requires external dependency** | Needs `llama-quantize`; formats are read from that binary's own help output |
+| Benchmarking and comparisons | **Requires external dependency** | Needs `llama-server`; all metrics measured, quality is rule-based |
+| ATOM Micro generative specialists | **Available** | Byte-level MLP trains in-process; firmware steps need PlatformIO |
+| ATOM Micro CSV classification + export | **Experimental** | Real training and metrics; validated on a synthetic fixture, not on a device |
+| Firmware build / flash / device benchmarks | **Requires physical hardware** | Generated project is real; building needs `pio`, flashing needs a board |
+| Model downloads, GPU memory probing, agent features | **Planned** | No code path exists, and the UI says so |
 
 ## Two optimization modes, deliberately separate
 
@@ -53,8 +73,10 @@ are not offered.
 ## What is implemented
 
 - **Model library** — GGUF v1–v3 header/metadata/tensor parser written in this
-  repo, streaming SHA-256, import by path or upload, drag-and-drop, filter/search,
-  variant links (compressed → source), verification and tamper detection.
+  repo, streaming SHA-256, import by path or upload, a fully interactive drop
+  zone with signature checking before a job starts, duplicate detection by
+  checksum, filter/search, variant links (compressed → source), verification and
+  tamper detection.
 - **Permanent compression** — detects the installed `llama-quantize`, reads the
   quantization types *its own help output advertises*, computes real per-tensor
   size estimates, runs it with an explicit argv, parses its `[n/total]` tensor
@@ -67,10 +89,17 @@ are not offered.
   disk, throughput, latency, peak RSS, per-suite pass rates, repeat-consistency;
   Markdown + JSON reports; history.
 - **System monitor** — sysinfo-backed samples streamed over SSE, with system RAM,
-  ATOM process RSS and model process RSS kept visibly separate.
+  ATOM process RSS and model process RSS kept visibly separate. Chart axes are
+  laid out with reserved label widths, so ticks read `143 MiB` or `75%` rather
+  than being clipped.
 - **Quality suites** — deterministic, rule-checked cases for instruction
   following, knowledge, reasoning, arithmetic, coding and consistency. Results
   are labelled automated estimates, never "intelligence scores".
+- **ATOM Micro classification** — CSV profiling (inferred column types, missing
+  and invalid values, class balance), grouped leakage-safe splits, an in-process
+  multinomial classifier, measured accuracy/macro precision/recall/F1/weighted
+  F1/log loss with a per-class table and confusion matrix, and a validated export
+  bundle (JSON checkpoint, C header, self-test, SHA-256 manifest).
 - **ATOM Micro** — a complete 11-step workflow (project → board → dataset →
   architecture → training → evaluation → quantization → memory plan → export →
   firmware → device benchmarks) backed by the `atom-micro` crate. Byte-level MLP
@@ -104,6 +133,70 @@ Architectures that need PyTorch (transformers) are listed but disabled with the
 exact requirement. Firmware build, flashing and teacher-model distillation report
 an unavailable state when PlatformIO, a serial port or a loaded `llama-server`
 teacher are missing — they never simulate success.
+
+## ATOM Micro classification
+
+The classification workspace is a second Micro workflow for tabular data. It is
+reachable from any project (**Classify CSV**) and does not affect the generative
+steps.
+
+| Stage | What is real |
+| --- | --- |
+| CSV import | UTF-8 with a header row, RFC 4180 quoting, 20 MiB / 50 000 row limits; a normalized copy is stored in the project and the source is untouched |
+| Column profile | Type inferred per column (numeric/categorical), missing and unparsable counts, unique values, examples — all from the parsed rows |
+| Roles | Target label plus any number of input features (≤ 48 columns, ≤ 256 design features after one-hot encoding) |
+| Split | Grouped by identical row so an exact duplicate cannot appear in two splits; train/validation/test counts are reported |
+| Training | Multinomial logistic regression, mini-batch SGD with L2, seeded, cancellable, epoch-by-epoch training/validation loss |
+| Metrics | Accuracy, macro precision/recall/F1, weighted F1, log loss, per-class support/predicted/precision/recall/F1 and the full confusion matrix on the selected split |
+| Export | `classifier.json`, `model.h` (same weights as C arrays), `classifier.c` (self-test), `README.md`, `manifest.json` with SHA-256 of every file |
+
+The export is validated before success is reported: ATOM reloads the JSON
+checkpoint, re-scores the held-out test split and requires the accuracy to match
+the report. When a host C compiler exists it also compiles and runs the generated
+self-test.
+
+Measured in this VM on the synthetic fixture (600 rows, 5 features, 3 classes,
+80 epochs): **87.8 % test accuracy**, macro F1 87.8 %, weighted F1 88.0 %, log
+loss 0.388, 39 parameters, 1.2 KiB checkpoint. That is a smoke test of the
+pipeline, not a claim about any real dataset.
+
+## Supported formats
+
+| Direction | Format | Notes |
+| --- | --- | --- |
+| Import | GGUF v1–v3 | Header/metadata/tensor table only; tensor payloads are never executed |
+| Compression output | GGUF, formats advertised by the installed `llama-quantize` | Q8_0 … Q2_K where the binary supports them |
+| Micro generative checkpoint | `ATOMLM1` (float32) | Native format, loaded by ATOM and exported to C |
+| Micro quantized container | `ATOMQ1` (f16/int8/int4) | Symmetric per-row scales, documented in `atom-micro` |
+| Micro classifier | `ATOMCL1` JSON + C header | Portable weights and encodings |
+| Micro datasets | UTF-8 text, JSON, JSONL, CSV | Classification requires CSV with a header |
+
+## Architecture
+
+```
+                    ┌─────────────────────────────────────────────┐
+                    │  Tauri window (Windows / Linux)             │
+                    │  └─ loads http://127.0.0.1:<ephemeral>      │
+                    └───────────────┬─────────────────────────────┘
+                                    │ HTTP + SSE
+                    ┌───────────────▼─────────────────────────────┐
+                    │  atom-api (axum)                            │
+                    │  REST routes · SSE streams · embedded UI    │
+                    └───────────────┬─────────────────────────────┘
+                                    │
+                    ┌───────────────▼─────────────────────────────┐
+                    │  atom-engine (composition root)             │
+                    │  jobs · runtime · comparisons · micro        │
+                    └──┬───────┬────────┬────────┬────────┬───────┘
+                       │       │        │        │        │
+                  atom-models │  atom-inference  atom-bench  atom-micro
+                       │       │        │        │        │
+                  atom-security atom-compression atom-memory (sysinfo)
+                       │
+                  atom-core (config, errors, job registry, logs)
+
+React + TypeScript UI ──HTTP/SSE──> the same router in dev and desktop
+```
 
 ## Requires an external llama.cpp build
 
@@ -174,7 +267,8 @@ crates/
   atom-inference/   llama-server supervision, streaming, tool probing
   atom-compression/ quantize planning, execution, output validation
   atom-bench/       deterministic suites, scoring, comparison store/reports
-  atom-micro/       boards, datasets, MLP model, quantization, export, firmware, benchmarks
+  atom-micro/       boards, datasets, MLP model, quantization, export, firmware, benchmarks,
+                    CSV classification (classify.rs)
   atom-engine/      composition root used by API, CLI and desktop
 apps/
   api/              axum HTTP + SSE surface, serves the built UI
@@ -197,17 +291,28 @@ docs/               architecture and verification notes
   never deleted by ATOM.
 - Partial or invalid quantization output is deleted, never presented as success.
 - Job cancellation kills the child process and reaps it.
+- A second import of a file whose SHA-256 is already in the library is refused
+  and the redundant copy is deleted.
+- Classification splits are grouped by identical row, so an exact duplicate can
+  never appear in both training and test.
 - Model metadata is parsed as data only; nothing from a model file is executed.
 - Network access is off by default, and no download code path exists yet.
 
 ## Tests
 
 ```bash
-cargo test --workspace     # 81 tests: parser, security, quantize, scoring, engine jobs,
-                           # Micro training/export/quantization, plus stub-driven
-                           # process/streaming integration tests
-cd frontend && npx tsc --noEmit && bun run build
+cargo test --workspace     # 89 tests: parser, security, quantize, scoring, engine jobs,
+                           # Micro training/export/quantization/classification, plus
+                           # stub-driven process/streaming integration tests
+cd frontend && ./node_modules/.bin/tsc --noEmit && bun run build
 ```
+
+The classifier suite covers CSV quoting/newlines, type and missing-value
+profiling, the single split-assignment invariant (membership and the
+train/validation/test index vectors are one structure, and duplicate rows never
+cross splits), training on separable data, metric/confusion consistency,
+cancellation, and the export round-trip (reloaded checkpoint re-scores to the
+same accuracy).
 
 `crates/atom-teststubs` holds two dev-only executables that impersonate
 `llama-quantize` and `llama-server`. The integration tests spawn them as real
@@ -216,6 +321,34 @@ and SSE token streaming are exercised without a llama.cpp build or a real model.
 
 See [docs/VERIFICATION.md](docs/VERIFICATION.md) for exactly what was verified in
 the build environment and what was not.
+
+## Testing status (0.2)
+
+| Feature | Status | Evidence |
+| --- | --- | --- |
+| GGUF import | **Tested** | Live API: valid GGUF imported; duplicate import rejected and the extra copy removed; non-GGUF rejected with "missing GGUF magic"; path outside the allowlist rejected |
+| GGUF inspection | **Tested** | Parser unit tests plus a profile of an imported file (28,672 params, 2,048 ctx, tensor mix) |
+| Permanent quantization | **Blocked** | No `llama-quantize` in this VM; stub-process integration tests cover argv, progress, cancellation cleanup and output validation |
+| Runtime optimization | **Blocked** | No `llama-server`; stub tests cover load timing, streaming, cancellation and unload/reap |
+| Inference | **Blocked** | Same reason; the UI reports the binary as missing rather than simulating a reply |
+| Benchmarking | **Blocked** | Requires a model + backend; scoring and reporting are unit-tested |
+| Micro training (generative) | **Tested** | Real SGD run in this VM (loss 4.349 → validation 0.7096, perplexity 2.03) |
+| Micro classification | **Tested** | Live API: 600-row CSV → 420/90/90 split → 80 epochs → 87.8 % test accuracy → export validated and compiled |
+| Model export (classifier) | **Tested** | JSON reloaded and re-scored (90 rows, accuracy matched), C self-test compiled with `cc` and printed `predicted=heating actual=heating` |
+| Model export (generative) | **Tested** | Export bundle + host compile/benchmark from the existing Micro pipeline |
+| Hardware deployment | **Blocked** | No PlatformIO and no board; API returns 503 instead of claiming a build |
+| Native desktop build | **Blocked** | No WebKitGTK/GTK dev packages and no display in this VM; installers are produced by CI |
+
+## Roadmap
+
+1. **0.2.x** — classifier probability calibration, per-feature importance, and a
+   dataset preview inside the column picker.
+2. **0.3** — real llama.cpp verification on a machine that has it, with recorded
+   conversion/inference fixtures checked into the test suite.
+3. **0.4** — on-device classifier deployment: generate a C runtime from the
+   exported header, build it with PlatformIO for the selected board and import
+   measured results.
+4. **Later** — opt-in, checksum-verified model downloads and GPU memory probing.
 
 ## Known limitations
 
@@ -235,6 +368,16 @@ the build environment and what was not.
 - **ATOM Micro firmware steps need PlatformIO** (`pip install platformio`). The
   export step still compiles and benchmarks on the host with `cc`, but building
   and flashing board firmware is unavailable without `pio`.
+- **Classification is linear.** The built-in classifier is multinomial logistic
+  regression; it is honest about its limits and will underfit strongly
+  non-linear problems. It is not a gradient-boosted tree or a neural network.
+- **Probabilities are not calibrated.** Log loss and per-class precision/recall
+  are measured, but no calibration curve or reliability diagram is produced.
+- **The classification smoke test used a synthetic fixture**, not a real user
+  dataset. The exported C header was compiled and self-tested on the host; it has
+  not been built for or run on a microcontroller.
+- **Chart rendering was checked at 1440 px** in the cloud browser. Very narrow
+  window widths reflow the panels but were not exhaustively measured.
 - **Transformer Micro architectures need PyTorch** (`pip install torch`). The
   built-in MLP trainers do not.
 - Distillation uses a loaded `llama-server` teacher; without one the lab is

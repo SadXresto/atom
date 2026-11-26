@@ -220,7 +220,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           >
             <Command size={10} /> K
           </button>
-          <span className="mono-num">v0.1.0</span>
+          <span className="mono-num">v0.2.0</span>
         </div>
       </aside>
 

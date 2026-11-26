@@ -2,6 +2,9 @@
 //! exports and firmware.
 
 use atom_core::AtomError;
+use atom_engine::classify::{
+    self as classification, ClassifyImportRequest, ClassifyProfileRequest, ClassifyTrainRequest,
+};
 use atom_engine::micro::{self, BenchmarkRequest, DatasetRequest, DistillRequest, InferRequest, TrainRequest};
 use atom_engine::AppState;
 use axum::{
@@ -35,6 +38,16 @@ pub fn router() -> Router<AppState> {
         .route("/micro/projects", get(list_projects).post(create_project))
         .route("/micro/projects/{id}", get(get_project).patch(patch_project).delete(delete_project))
         .route("/micro/projects/{id}/dataset", post(import_dataset))
+        .route("/micro/projects/{id}/classification/profile", post(classify_profile))
+        .route(
+            "/micro/projects/{id}/classification/dataset",
+            post(classify_dataset),
+        )
+        .route("/micro/projects/{id}/classification/train", post(classify_train))
+        .route(
+            "/micro/projects/{id}/classification/export",
+            post(classify_export),
+        )
         .route("/micro/projects/{id}/train", post(train))
         .route("/micro/projects/{id}/distill", post(distill))
         .route("/micro/projects/{id}/evaluate", post(evaluate))
@@ -173,6 +186,43 @@ async fn import_dataset(
 ) -> ApiResult<Json<Value>> {
     let project = micro::import_dataset(&state, &id, body)?;
     Ok(Json(json!({ "project": project_value(&project) })))
+}
+
+async fn classify_profile(
+    State(state): State<AppState>,
+    AxumPath(_id): AxumPath<String>,
+    Json(body): Json<ClassifyProfileRequest>,
+) -> ApiResult<Json<Value>> {
+    let profile = classification::profile_path(&state, body)?;
+    Ok(Json(json!({ "profile": profile })))
+}
+
+async fn classify_dataset(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<ClassifyImportRequest>,
+) -> ApiResult<Json<Value>> {
+    let project = classification::import_dataset(&state, &id, body)?;
+    Ok(Json(json!({ "project": project_value(&project) })))
+}
+
+async fn classify_train(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> ApiResult<Json<Value>> {
+    let req: ClassifyTrainRequest = serde_json::from_value(body)
+        .map_err(|e| AtomError::Invalid(format!("invalid classification request: {e}")))?;
+    let job = state.start_micro_classify(&id, req)?;
+    Ok(Json(json!({ "job_id": job })))
+}
+
+async fn classify_export(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<String>,
+) -> ApiResult<Json<Value>> {
+    let export = classification::export_project(&state, &id)?;
+    Ok(Json(json!({ "export": export })))
 }
 
 async fn train(

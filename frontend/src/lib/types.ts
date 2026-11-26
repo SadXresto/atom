@@ -637,6 +637,130 @@ export interface DistillReport {
   method: string;
 }
 
+/* --------------------------- ATOM Micro classifier ------------------------- */
+
+export interface CsvColumn {
+  name: string;
+  kind: "numeric" | "categorical" | string;
+  missing: number;
+  invalid: number;
+  unique: number;
+  min: number | null;
+  max: number | null;
+  mean: number | null;
+  examples: string[];
+}
+
+export interface CsvProfile {
+  path: string;
+  bytes: number;
+  rows: number;
+  columns: CsvColumn[];
+  warnings: string[];
+}
+
+export interface ClassShare {
+  label: string;
+  count: number;
+  share: number;
+}
+
+export interface ClassifierSplit {
+  train: number;
+  validation: number;
+  test: number;
+}
+
+export interface ClassifierDataset {
+  profile: CsvProfile;
+  spec: {
+    features: string[];
+    target: string;
+    val_ratio: number;
+    test_ratio: number;
+    seed: number;
+  };
+  stored_path: string;
+  design_features: number;
+  classes: ClassShare[];
+  split: ClassifierSplit;
+  duplicate_rows: number;
+  duplicate_groups: number;
+  missing_values: number;
+  notes: string[];
+}
+
+export interface ClassifierEpoch {
+  epoch: number;
+  train_loss: number;
+  val_loss: number;
+  val_accuracy: number;
+  seconds: number;
+}
+
+export interface ClassMetrics {
+  label: string;
+  support: number;
+  predicted: number;
+  precision: number;
+  recall: number;
+  f1: number;
+}
+
+export interface ClassifierMetrics {
+  samples: number;
+  accuracy: number;
+  macro_precision: number;
+  macro_recall: number;
+  macro_f1: number;
+  weighted_f1: number;
+  log_loss: number;
+  per_class: ClassMetrics[];
+  confusion: number[][];
+  note: string;
+}
+
+export interface ClassifierReport {
+  labels: string[];
+  design_features: number;
+  parameters: number;
+  weight_bytes: { float32_bytes: number; int8_estimate_bytes: number; note: string };
+  settings: { epochs: number; learning_rate: number; batch: number; l2: number; seed: number };
+  epochs: number;
+  duration_ms: number;
+  train: ClassifierMetrics;
+  validation: ClassifierMetrics;
+  test: ClassifierMetrics;
+  curve: ClassifierEpoch[];
+  notes: string[];
+}
+
+export interface ClassifierTraining {
+  job_id: string;
+  model_path: string;
+  model_bytes: number;
+  started_at: string;
+  finished_at: string;
+  report: ClassifierReport;
+}
+
+export interface ClassifierExport {
+  dir: string;
+  created_at: string;
+  files: Array<{ name: string; bytes: number; sha256: string }>;
+  manifest_path: string;
+  manifest_sha256: string;
+  compile_check: string | null;
+  validation: string;
+  total_bytes: number;
+}
+
+export interface ClassifierRecord {
+  dataset: ClassifierDataset;
+  training: ClassifierTraining | null;
+  export: ClassifierExport | null;
+}
+
 export interface MicroProject {
   id: string;
   name: string;
@@ -655,6 +779,7 @@ export interface MicroProject {
   firmware: FirmwareReport | null;
   distillation: DistillReport | null;
   benchmarks: DeviceBenchmark[];
+  classification: ClassifierRecord | null;
   next_step: number;
   completed_steps: number[];
 }

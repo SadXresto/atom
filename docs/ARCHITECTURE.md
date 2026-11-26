@@ -29,7 +29,7 @@ store and conversations. `apps/api` contains only transport code.
 | `atom-inference` | tool probing, `Runtime` (llama-server child), SSE parsing, `complete_at` | waits on `/health`; load time measured; child reaped on unload; cancellation checked per chunk |
 | `atom-compression` | quantize tooling, plan/argv, runner, validation | source ≠ output enforced; progress parsed from tool output; partial output deleted on failure/cancel |
 | `atom-bench` | suites, scoring, comparison types, store, Markdown report | every check is deterministic; consistency is agreement between repeats |
-| `atom-micro` | board tables, dataset stats/split, byte-level MLP + SGD, quantization, micro project store, C export, PlatformIO project, benchmark import | training loss is computed from the model, never written by the caller; quantization reports its measured delta; unsupported architectures/tools return unavailable |
+| `atom-micro` | board tables, dataset stats/split, byte-level MLP + SGD, CSV classification (`classify.rs`), quantization, micro project store, C export, PlatformIO project, benchmark import | training loss is computed from the model, never written by the caller; quantization reports its measured delta; the classifier split is grouped by row hash so duplicates cannot leak; unsupported architectures/tools return unavailable |
 | `atom-engine` | orchestration of jobs, runtime, chat, comparisons, Micro pipeline | long work runs in tokio tasks; blocking work uses `spawn_blocking` |
 | `atom-api` | routes, SSE, static UI hosting, Micro endpoints | destructive model deletion requires `confirm=<id>`; export downloads are restricted to a file whitelist |
 
@@ -79,6 +79,25 @@ Nothing else exists that could claim progress, so nothing else does.
    check removes the file.
 5. A `ModelRecord` with `kind = compressed { source_model_id, format, job_id, … }`
    is inserted, so provenance survives restarts.
+
+## Classification lifecycle
+
+1. `POST /api/micro/projects/{id}/classification/profile` parses the CSV with an
+   RFC 4180 reader and reports inferred column types, missing/invalid counts and
+   unique values. Nothing is stored.
+2. `POST …/classification/dataset` validates the target/feature selection, builds
+   the design matrix, assigns whole duplicate groups to train/validation/test and
+   copies the CSV into `<project>/classification/dataset.csv`.
+3. `POST …/classification/train` runs as a cancellable `JobKind::Train` job. The
+   stored copy is re-prepared with the recorded spec, so the split is
+   reproducible; the optimiser never sees the test split.
+4. Metrics are computed from predictions of the saved weights. The report keeps
+   train, validation and test metrics separate, including per-class precision,
+   recall and F1 plus the confusion matrix.
+5. `POST …/classification/export` writes the JSON checkpoint, a C header, a
+   self-test, a README and a SHA-256 manifest. The JSON is reloaded and re-scored
+   before the export is reported; a host `cc` compiles and runs the self-test when
+   available.
 
 ## Benchmark lifecycle
 

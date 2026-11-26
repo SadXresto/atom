@@ -7,6 +7,7 @@ import {
   HardDrive,
   Layers,
   Microchip,
+  Table2,
   Plus,
   Rocket,
   Sparkles,
@@ -97,6 +98,14 @@ export default function MicroProjects() {
         description="Create a project, train a small model on your own dataset, quantize it, verify the memory budget for a specific microcontroller, export a checksummed artifact and build firmware."
         actions={
           <>
+            {projects.length > 0 && (
+              <Button
+                onClick={() => navigate(`/micro/${projects[0].id}/classifier`)}
+                icon={<Table2 size={13} />}
+              >
+                Classify CSV
+              </Button>
+            )}
             <Button onClick={() => navigate("/hardware")} icon={<Cpu size={13} />}>
               Hardware Lab
             </Button>

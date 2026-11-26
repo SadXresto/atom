@@ -19,6 +19,17 @@ import type { Snapshot } from "../lib/types";
 const axisStyle = { fill: "#6f7789", fontSize: 10.5 };
 const gridColor = "rgba(255,255,255,0.045)";
 
+/** Compact binary units for axis ticks, so a label can never read "00M". */
+export function compactBytes(value: number): string {
+  if (!Number.isFinite(value)) return "\u2014";
+  const abs = Math.abs(value);
+  if (abs >= 1024 ** 4) return `${(value / 1024 ** 4).toFixed(1)} TiB`;
+  if (abs >= 1024 ** 3) return `${(value / 1024 ** 3).toFixed(1)} GiB`;
+  if (abs >= 1024 ** 2) return `${Math.round(value / 1024 ** 2)} MiB`;
+  if (abs >= 1024) return `${Math.round(value / 1024)} KiB`;
+  return `${Math.round(value)} B`;
+}
+
 const tooltipStyle = {
   background: "#0d1015",
   border: "1px solid #242a36",
@@ -31,13 +42,13 @@ const tooltipStyle = {
 export function MemoryChart({ history }: { history: Snapshot[] }) {
   const data = history.map((sample) => ({
     t: new Date(sample.ts).toLocaleTimeString(undefined, { hour12: false }).slice(3),
-    system: sample.used_memory / 1048576,
-    atom: sample.process_rss / 1048576,
-    model: (sample.model_process_rss ?? 0) / 1048576,
+    system: sample.used_memory,
+    atom: sample.process_rss,
+    model: sample.model_process_rss ?? 0,
   }));
   return (
     <ResponsiveContainer width="100%" height={210}>
-      <AreaChart data={data} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 14, left: 2, bottom: 0 }}>
         <defs>
           <linearGradient id="sysFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#7f9dff" stopOpacity={0.35} />
@@ -49,17 +60,28 @@ export function MemoryChart({ history }: { history: Snapshot[] }) {
           </linearGradient>
         </defs>
         <CartesianGrid stroke={gridColor} vertical={false} />
-        <XAxis dataKey="t" tick={axisStyle} axisLine={false} tickLine={false} minTickGap={40} />
+        <XAxis
+          dataKey="t"
+          tick={axisStyle}
+          axisLine={false}
+          tickLine={false}
+          minTickGap={44}
+          tickMargin={6}
+          interval="preserveStartEnd"
+        />
         <YAxis
           tick={axisStyle}
           axisLine={false}
           tickLine={false}
-          width={52}
-          tickFormatter={(v: number) => (v >= 1024 ? `${(v / 1024).toFixed(1)}G` : `${Math.round(v)}M`)}
+          width={62}
+          tickMargin={4}
+          allowDecimals
+          domain={[0, "auto"]}
+          tickFormatter={(v: number) => compactBytes(v)}
         />
         <Tooltip
           contentStyle={tooltipStyle}
-          formatter={(value: number, name: string) => [`${value.toFixed(0)} MiB`, name]}
+          formatter={(value: number, name: string) => [compactBytes(value), name]}
           labelStyle={{ color: "#8a93a5" }}
         />
         <Legend
@@ -108,7 +130,7 @@ export function CpuChart({ history }: { history: Snapshot[] }) {
   }));
   return (
     <ResponsiveContainer width="100%" height={150}>
-      <AreaChart data={data} margin={{ top: 6, right: 6, left: -24, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 14, left: 2, bottom: 0 }}>
         <defs>
           <linearGradient id="cpuFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#4fd1c5" stopOpacity={0.32} />
@@ -116,16 +138,30 @@ export function CpuChart({ history }: { history: Snapshot[] }) {
           </linearGradient>
         </defs>
         <CartesianGrid stroke={gridColor} vertical={false} />
-        <XAxis dataKey="t" tick={axisStyle} axisLine={false} tickLine={false} minTickGap={40} />
+        <XAxis
+          dataKey="t"
+          tick={axisStyle}
+          axisLine={false}
+          tickLine={false}
+          minTickGap={44}
+          tickMargin={6}
+          interval="preserveStartEnd"
+        />
         <YAxis
           tick={axisStyle}
           axisLine={false}
           tickLine={false}
-          width={44}
+          width={52}
+          tickMargin={4}
           domain={[0, 100]}
-          tickFormatter={(v: number) => `${v}%`}
+          ticks={[0, 25, 50, 75, 100]}
+          tickFormatter={(v: number) => `${Math.round(v)}%`}
         />
-        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toFixed(1)}%`, "CPU"]} />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          formatter={(v: number) => [`${v.toFixed(1)} %`, "System CPU"]}
+          labelFormatter={(label: string) => `at ${label}`}
+        />
         <Area
           type="monotone"
           dataKey="cpu"
@@ -156,16 +192,18 @@ export function SuiteBars({
   });
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} barGap={3}>
+      <BarChart data={data} margin={{ top: 8, right: 14, left: 2, bottom: 0 }} barGap={3}>
         <CartesianGrid stroke={gridColor} vertical={false} />
         <XAxis dataKey="title" tick={{ ...axisStyle, fontSize: 10 }} axisLine={false} tickLine={false} interval={0} />
         <YAxis
           tick={axisStyle}
           axisLine={false}
           tickLine={false}
-          width={44}
+          width={52}
+          tickMargin={4}
           domain={[0, 100]}
-          tickFormatter={(v: number) => `${v}%`}
+          ticks={[0, 25, 50, 75, 100]}
+          tickFormatter={(v: number) => `${Math.round(v)}%`}
         />
         <Tooltip
           contentStyle={tooltipStyle}
@@ -229,10 +267,17 @@ export function LossChart({
   }
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+      <LineChart data={data} margin={{ top: 8, right: 14, left: 2, bottom: 0 }}>
         <CartesianGrid stroke={gridColor} vertical={false} />
         <XAxis dataKey="epoch" tick={axisStyle} axisLine={false} tickLine={false} />
-        <YAxis tick={axisStyle} axisLine={false} tickLine={false} width={52} tickFormatter={(v: number) => v.toFixed(2)} />
+        <YAxis
+          tick={axisStyle}
+          axisLine={false}
+          tickLine={false}
+          width={58}
+          tickMargin={4}
+          tickFormatter={(v: number) => v.toFixed(2)}
+        />
         <Tooltip
           contentStyle={tooltipStyle}
           formatter={(value: number, name: string) => [value.toFixed(4), name === "train" ? "training loss" : "validation loss"]}

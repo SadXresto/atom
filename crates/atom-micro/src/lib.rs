@@ -7,6 +7,7 @@
 
 pub mod architecture;
 pub mod bench;
+pub mod classify;
 pub mod dataset;
 pub mod export;
 pub mod firmware;
@@ -17,6 +18,12 @@ pub mod tools;
 
 pub use architecture::{architecture, architectures, Architecture};
 pub use bench::{parse_report, summarize, BenchmarkSummary};
+pub use classify::{
+    build_design, class_shares, export_classifier, load_model, prepare, profile_csv, save_model,
+    train_classifier, ClassifierDataset,
+    ClassifierExport, ClassifierModel, ClassifierRecord, ClassifierReport, ClassifierSpec,
+    ClassifierTraining, CsvProfile, FeatureEncoding, SplitAssignment, TrainSettings,
+};
 pub use dataset::{analyze, import, parse_documents, split_documents, DatasetInfo, DatasetStats};
 pub use export::{export_bundle, ExportInput};
 pub use firmware::generate_project;

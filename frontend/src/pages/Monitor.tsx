@@ -112,18 +112,12 @@ export default function Monitor() {
           ) : (
             <EmptyState compact icon={<MemoryStick size={16} />} title="Collecting samples…" />
           )}
-          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
             <MemoryNote label="System RAM" value={latest ? bytes(latest.total_memory) : "—"} hint="Physical memory installed." />
             <MemoryNote
               label="Available"
               value={latest ? bytes(latest.available_memory) : "—"}
               hint="What the OS says can still be allocated without swapping."
-            />
-            <MemoryNote
-              label="Model file"
-              value={runtime?.model_path ? bytes(0) : "—"}
-              hint="File size on disk is not memory; mmap pages count as page cache."
-              hidden
             />
           </div>
         </Panel>
@@ -237,8 +231,7 @@ export default function Monitor() {
   );
 }
 
-function MemoryNote({ label, value, hint, hidden }: { label: string; value: string; hint: string; hidden?: boolean }) {
-  if (hidden) return null;
+function MemoryNote({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
     <div className="rounded-lg border border-line bg-black/20 px-2.5 py-2" title={hint}>
       <div className="label">{label}</div>

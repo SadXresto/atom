@@ -63,7 +63,29 @@ impl AppState {
 
             match result {
                 Ok(Ok(outcome)) => {
+                    let copied = outcome.copied;
                     let record = outcome.record;
+                    // Duplicate detection by the checksum the import just
+                    // computed. The redundant copy is removed so the library
+                    // directory cannot silently fill with identical files.
+                    if let Some(hash) = record.sha256.clone() {
+                        let existing = state.inner.library.read().ok().and_then(|lib| {
+                            lib.list()
+                                .iter()
+                                .find(|m| m.sha256.as_deref() == Some(hash.as_str()))
+                                .map(|m| (m.label.clone(), m.id.clone()))
+                        });
+                        if let Some((label, id)) = existing {
+                            if copied {
+                                let _ = std::fs::remove_file(&record.path);
+                            }
+                            let short = hash.chars().take(12).collect::<String>();
+                            job.finish_err(format!(
+                                "this file is already in the library as '{label}' (id {id}, sha256 {short}…).                                  The duplicate copy was discarded."
+                            ));
+                            return;
+                        }
+                    }
                     job.progress("indexing model", 0.95);
                     if let Ok(mut lib) = state.inner.library.write() {
                         if let Err(e) = lib.insert(record.clone()) {

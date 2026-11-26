@@ -146,6 +146,10 @@ pub struct MicroProject {
     pub firmware: Option<FirmwareReport>,
     pub distillation: Option<DistillReport>,
     pub benchmarks: Vec<DeviceBenchmark>,
+    /// Tabular classification workflow. Absent on projects created before it
+    /// existed, so the field is optional and defaults to `None`.
+    #[serde(default)]
+    pub classification: Option<crate::ClassifierRecord>,
 }
 
 impl MicroProject {
@@ -262,6 +266,15 @@ impl MicroStore {
         self.project_dir(id).join("models")
     }
 
+    /// Directory holding the imported classification CSV and its checkpoints.
+    pub fn classify_dir(&self, id: &str) -> PathBuf {
+        self.project_dir(id).join("classification")
+    }
+
+    pub fn classify_csv_path(&self, id: &str) -> PathBuf {
+        self.classify_dir(id).join("dataset.csv")
+    }
+
     fn ensure(&self) -> Result<()> {
         for dir in [self.projects_dir(), self.exports_dir(), self.firmware_dir()] {
             std::fs::create_dir_all(dir)?;
@@ -339,6 +352,7 @@ impl MicroStore {
             firmware: None,
             distillation: None,
             benchmarks: Vec::new(),
+            classification: None,
         };
         self.save(&mut project)?;
         Ok(project)
