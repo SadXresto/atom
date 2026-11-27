@@ -224,9 +224,14 @@ impl AppState {
     }
 
     /// Start the periodic memory sampler used by the System Monitor.
+    ///
+    /// The desktop shell calls this from `main` before Tauri has started any
+    /// Tokio runtime, and `tokio::spawn` panics with "there is no reactor
+    /// running" when no runtime is entered (that was the Windows 0.2.0 startup
+    /// crash). So the sampler owns its runtime when the caller has none.
     pub fn spawn_sampler(&self) {
         let state = self.clone();
-        tokio::spawn(async move {
+        let task = async move {
             let self_ = state;
             let mut interval = tokio::time::interval(std::time::Duration::from_millis(1500));
             loop {
@@ -248,7 +253,21 @@ impl AppState {
                     }
                 }
             }
-        });
+        };
+
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(task);
+            return;
+        }
+        let _ = std::thread::Builder::new()
+            .name("atom-sampler".into())
+            .spawn(move || match tokio::runtime::Builder::new_current_thread()
+                .enable_time()
+                .build()
+            {
+                Ok(rt) => rt.block_on(task),
+                Err(err) => tracing::error!("memory sampler could not start: {err}"),
+            });
     }
 }
 
