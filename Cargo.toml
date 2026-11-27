@@ -9,6 +9,8 @@ exclude = ["apps/desktop", "frontend"]
 [workspace.package]
 version = "0.2.2"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/SadXresto/atom"
 
 [workspace.dependencies]
 axum = { version = "0.8", features = ["multipart"] }

@@ -1,5 +1,10 @@
 # ATOM — Adaptive Tiny Operating Model
 
+[![Installers](https://img.shields.io/github/actions/workflow/status/SadXresto/atom/desktop.yml?label=installers&logo=github)](https://github.com/SadXresto/atom/actions/workflows/desktop.yml)
+[![Release](https://img.shields.io/github/v/release/SadXresto/atom)](https://github.com/SadXresto/atom/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/SadXresto/atom)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platform-Windows%2010%2F11%20%C2%B7%20Linux-blue)](#desktop-app-windows--linux)
+
 A local-first desktop application for importing GGUF language models, tuning how
 they run, **permanently** compressing them into separate files, comparing
 original vs. compressed behaviour with measured numbers, and training/exporting
@@ -420,3 +425,8 @@ the build environment and what was not.
 - Quality suites are small and rule-based by design. They detect regressions on
   those specific behaviours, not general model equivalence.
 - `mcp`/agent features (`atom-agent`) are a future phase and absent.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Dependencies keep their own licenses; the Cargo and
+bun lockfiles are the authoritative list of what ships.
