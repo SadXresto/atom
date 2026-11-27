@@ -179,7 +179,7 @@ opening the app; there is nothing to verify in a browser.
 ```bash
 # Linux
 scripts/build-desktop.sh
-sudo apt install ./apps/desktop/target/release/bundle/deb/ATOM_0.2.1_amd64.deb
+sudo apt install ./apps/desktop/target/release/bundle/deb/ATOM_0.2.2_amd64.deb
 atom   # or launch ATOM from the application menu
 ```
 
@@ -231,7 +231,7 @@ bootstrapper instead of downloading it during installation.
 | Windows window appears | launch the installer on a real Windows 10/11 machine | **not run here** — no Windows host or display in this environment |
 | Linux desktop build | `scripts/build-desktop.sh` | not re-run (no WebKitGTK/GTK headers here) |
 
-## 0.2.1 update — startup crash after the window fix
+## 0.2.1 / 0.2.2 update — startup crash after the window fix
 
 The 0.2.0 Windows installer opened the window and then stopped with
 "ATOM stopped unexpectedly … panicked at crates/atom-engine/src/state.rs:229:
@@ -250,7 +250,7 @@ plain `#[test]`, i.e. with no runtime entered.
 | --- | --- | --- |
 | Sampler starts without a runtime | `cargo test -p atom-engine --test sampler` | passes |
 | Engine builds | `cargo check -p atom-engine` | clean |
-| Windows window + sampler | launch `ATOM_0.2.1_x64-setup.exe` on Windows 10/11 | **not run here** — no Windows host or display in this environment |
+| Windows window + sampler | launch `ATOM_0.2.2_x64-setup.exe` on Windows 10/11 | **not run here** — no Windows host or display in this environment |
 | UI screenshots | Playwright, 1440×940, against the 0.2.1 `atom-api --features embed-ui` binary seeded with `scripts/make_demo_gguf.py` and `scripts/make_classification_fixture.py` | Dashboard, Model Library, System Monitor and Classification workspace captured into `docs/screenshots/`; the classifier panel shows the measured 87.78 % test accuracy of that run |
 | Sidebar version | — | was hardcoded `v0.2.0` in `Layout.tsx`; it now reads `package.json`, and the captures show `v0.2.1` |
 

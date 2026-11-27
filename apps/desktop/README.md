@@ -10,8 +10,8 @@ folder to ship. Closing the window stops the app.
 
 | Platform | Artifact | Built by |
 | --- | --- | --- |
-| Windows 10/11 x64 | `ATOM_0.2.1_x64-setup.exe` (NSIS), `ATOM_0.2.1_x64_en-US.msi` | `scripts\build-desktop.ps1` |
-| Linux x86_64 | `ATOM_0.2.1_amd64.deb`, `ATOM_0.2.1_amd64.AppImage` | `scripts/build-desktop.sh` |
+| Windows 10/11 x64 | `ATOM_0.2.2_x64-setup.exe` (NSIS), `ATOM_0.2.2_x64_en-US.msi` | `scripts\build-desktop.ps1` |
+| Linux x86_64 | `ATOM_0.2.2_amd64.deb`, `ATOM_0.2.2_amd64.AppImage` | `scripts/build-desktop.sh` |
 
 The installers are produced from the same source on the corresponding OS. To get
 both without owning a Windows machine, push a `v*` tag (or run the workflow
@@ -77,12 +77,12 @@ scripts/build-desktop.sh deb        # single target
 ```
 
 Artifacts appear in `apps/desktop/target/release/bundle/{deb,appimage}`. Install
-the `.deb` with `sudo apt install ./ATOM_0.2.1_amd64.deb`, or make the AppImage
+the `.deb` with `sudo apt install ./ATOM_0.2.2_amd64.deb`, or make the AppImage
 executable and run it directly:
 
 ```bash
-chmod +x ATOM_0.2.1_amd64.AppImage
-./ATOM_0.2.1_amd64.AppImage
+chmod +x ATOM_0.2.2_amd64.AppImage
+./ATOM_0.2.2_amd64.AppImage
 ```
 
 ## Run from source (development)
