@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import pkg from "../../package.json";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -220,7 +221,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           >
             <Command size={10} /> K
           </button>
-          <span className="mono-num">v0.2.0</span>
+          <span className="mono-num">v{pkg.version}</span>
         </div>
       </aside>
 

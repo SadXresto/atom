@@ -27,10 +27,12 @@ TypeScript + Tailwind interface.
 | **Compression Studio** | **ATOM Micro — a measured training run** |
 | ![Permanent compression with real per-quantization size estimates and ratios](docs/screenshots/compression.png) | ![Micro Studio training step with the measured loss curve and evaluation metrics](docs/screenshots/micro-training.png) |
 
-Captured from the running application at 1440 px wide. Every number is either
-read from the machine or computed by ATOM: the compression figures are real
-per-tensor size estimates, the loss curve is the recorded result of an actual SGD
-run, and the classifier scores come from predictions on a held-out split.
+Captured from the running 0.2.1 build at 1440 px wide, seeded with this
+repository's own demo fixtures ([Working example](#working-example) below). Every
+number is either read from the machine or computed by ATOM: the compression
+figures are real per-tensor size estimates, the loss curve is the recorded result
+of an actual SGD run, and the classifier scores come from predictions on a
+held-out split.
 
 The model in the library is a small GGUF fixture (`scripts/make_demo_gguf.py`) and
 the classifier was trained on a **synthetic CSV generated for the smoke test**
@@ -38,6 +40,32 @@ the classifier was trained on a **synthetic CSV generated for the smoke test**
 exercised without a multi-gigabyte model or someone's private data. llama.cpp and
 PlatformIO are genuinely absent from that machine, which is why those panels show
 an unavailable state instead of plausible-looking values.
+
+## Working example
+
+Five commands reproduce the screenshots above from a clean checkout, with no
+llama.cpp, no model download and no dataset of your own:
+
+```bash
+cd frontend && bun install && bun run build && cd ..   # the UI the API embeds
+cargo build --release -p atom-api --features embed-ui  # one binary, UI inside
+python3 scripts/make_demo_gguf.py /tmp/demo-model-f16.gguf
+python3 scripts/make_classification_fixture.py /tmp/classification.csv
+ATOM_HOME=/tmp/atom-demo ./target/release/atom-api      # http://127.0.0.1:8787
+```
+
+Then, in the UI:
+
+1. **Model Library → Import model** → `/tmp/demo-model-f16.gguf` (113 KiB GGUF
+   fixture). Import copies it into the workspace and records its SHA-256.
+2. **Micro Studio → New project** (any board), then **Classify CSV** with
+   `/tmp/classification.csv`, target `hvac_action`, features `temperature_c`,
+   `humidity_pct`, `wind_kmh`, `mode`, `room`, and **Start training**.
+3. That run is the one in the screenshot: 600 rows, 420/90/90 split, 80 epochs,
+   batch 32, seed 1337 → **87.78 % test accuracy**, macro F1 88.12 %.
+
+The desktop app hosts exactly this UI and API in one process, so the same steps
+work inside the installed application.
 
 ---
 

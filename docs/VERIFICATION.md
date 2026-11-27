@@ -251,6 +251,12 @@ plain `#[test]`, i.e. with no runtime entered.
 | Sampler starts without a runtime | `cargo test -p atom-engine --test sampler` | passes |
 | Engine builds | `cargo check -p atom-engine` | clean |
 | Windows window + sampler | launch `ATOM_0.2.1_x64-setup.exe` on Windows 10/11 | **not run here** — no Windows host or display in this environment |
+| UI screenshots | Playwright, 1440×940, against the 0.2.1 `atom-api --features embed-ui` binary seeded with `scripts/make_demo_gguf.py` and `scripts/make_classification_fixture.py` | Dashboard, Model Library, System Monitor and Classification workspace captured into `docs/screenshots/`; the classifier panel shows the measured 87.78 % test accuracy of that run |
+| Sidebar version | — | was hardcoded `v0.2.0` in `Layout.tsx`; it now reads `package.json`, and the captures show `v0.2.1` |
+
+The screenshots are the application's own embedded UI, served by the same binary
+the desktop shell hosts; they are not a capture of the Windows window, which this
+environment cannot render.
 
 ## 0.2 update — classification and UI fixes
 
